@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Search, ChevronRight, Mail, Phone, Save, Edit, 
-  User, MapPin, FileText, Clock, FileCheck, Eye 
+  User, MapPin, FileText, Clock, FileCheck, Eye // <--- Adicionado o Eye aqui
 } from 'lucide-react';
 import CandidateTable from '../components/CandidateTable';
-import { TableSkeleton, Spinner } from '../components/ui/Loading'; // Importando Skeletons e Spinner
 import { CANDIDATOS_MOCK } from '../data/mockData';
 
 export default function Inscritos() {
@@ -12,14 +11,6 @@ export default function Inscritos() {
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({});
-  const [loading, setLoading] = useState(true); // Estado de loading inicial
-  const [isSaving, setIsSaving] = useState(false); // Estado de salvamento
-
-  // Simula carregamento inicial da página
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1500);
-    return () => clearTimeout(timer);
-  }, []);
 
   const filteredCandidates = CANDIDATOS_MOCK.filter(c => 
     c.nome.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -34,13 +25,8 @@ export default function Inscritos() {
   };
 
   const handleSave = () => {
-    setIsSaving(true);
-    // Simula delay de salvamento no backend
-    setTimeout(() => {
-      alert(`Dados de ${editData.nome} salvos com sucesso!`);
-      setIsSaving(false);
-      setIsEditing(false);
-    }, 1000);
+    alert(`Dados de ${editData.nome} salvos com sucesso!`);
+    setIsEditing(false);
   };
 
   if (selectedCandidate) {
@@ -69,16 +55,9 @@ export default function Inscritos() {
           <div className="flex space-x-3">
             {isEditing ? (
               <>
-                <button onClick={() => setIsEditing(false)} disabled={isSaving} className="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 font-medium hover:bg-slate-50 disabled:opacity-50">
-                  Cancelar
-                </button>
-                <button 
-                  onClick={handleSave} 
-                  disabled={isSaving}
-                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 flex items-center shadow-lg shadow-emerald-500/20 disabled:opacity-70 disabled:cursor-not-allowed"
-                >
-                  {isSaving ? <Spinner size={18} className="mr-2" /> : <Save size={18} className="mr-2"/>}
-                  {isSaving ? 'Salvando...' : 'Salvar'}
+                <button onClick={() => setIsEditing(false)} className="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 font-medium hover:bg-slate-50">Cancelar</button>
+                <button onClick={handleSave} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 flex items-center shadow-lg shadow-emerald-500/20">
+                  <Save size={18} className="mr-2"/> Salvar
                 </button>
               </>
             ) : (
@@ -89,9 +68,6 @@ export default function Inscritos() {
           </div>
         </div>
 
-        {/* ... Resto do código do perfil (pode manter o original ou adicionar Skeletons se quiser carregar detalhes separadamente) ... */}
-        {/* Para simplificar, assumimos que os detalhes já estavam carregados na lista */}
-        
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 lg:col-span-2">
             <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
@@ -106,7 +82,6 @@ export default function Inscritos() {
                   <div className="flex items-center text-slate-800 font-medium p-2 bg-slate-50 rounded-lg border border-transparent"><Mail size={16} className="mr-2 text-slate-400"/> {selectedCandidate.email}</div>
                 )}
               </div>
-              {/* ... Outros campos (Telefone, Perfil, etc) ... */}
               <div>
                 <label className="block text-sm font-medium text-slate-500 mb-1">Telefone / WhatsApp</label>
                 {isEditing ? (
@@ -115,10 +90,69 @@ export default function Inscritos() {
                   <div className="flex items-center text-slate-800 font-medium p-2 bg-slate-50 rounded-lg border border-transparent"><Phone size={16} className="mr-2 text-slate-400"/> {selectedCandidate.telefone}</div>
                 )}
               </div>
-              {/* Mantive simplificado para não estender muito, mas o padrão é o mesmo */}
+              <div>
+                <label className="block text-sm font-medium text-slate-500 mb-1">Perfil de Inscrição</label>
+                <div className="p-2 text-slate-800 font-medium bg-slate-50 rounded-lg">{selectedCandidate.perfil}</div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-500 mb-1">Data Inscrição</label>
+                <div className="p-2 text-slate-800 font-medium bg-slate-50 rounded-lg">{selectedCandidate.data_inscricao}</div>
+              </div>
+            </div>
+
+            <div className="mt-8 pt-6 border-t border-slate-100">
+              <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
+                <MapPin size={20} className="mr-2 text-indigo-500"/> Processo e Localidade
+              </h3>
+              <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-xs font-bold text-indigo-400 uppercase">Processo Seletivo</span>
+                    <p className="font-bold text-indigo-900">{selectedCandidate.processo}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-indigo-400 uppercase">Cargo Pretendido</span>
+                    <p className="font-bold text-indigo-900">{selectedCandidate.cargo}</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <span className="text-xs font-bold text-indigo-400 uppercase">Lotação / Escola</span>
+                    <p className="font-bold text-indigo-900">{selectedCandidate.localidade}</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-          {/* ... Coluna de Documentos ... */}
+
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+              <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
+                <FileText size={20} className="mr-2 text-orange-500"/> Documentos
+              </h3>
+              <ul className="space-y-2">
+                {selectedCandidate.documentos?.map((doc, i) => (
+                  <li key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg text-sm font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-700 transition-colors cursor-pointer group">
+                    <span className="flex items-center"><FileCheck size={16} className="mr-2 text-slate-400 group-hover:text-orange-500"/> {doc}</span>
+                    <Eye size={16} className="opacity-0 group-hover:opacity-100"/>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+              <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
+                <Clock size={20} className="mr-2 text-slate-500"/> Linha do Tempo
+              </h3>
+              <div className="relative border-l-2 border-slate-100 ml-3 space-y-6 pl-6 pb-2">
+                {selectedCandidate.historico?.map((hist, i) => (
+                  <div key={i} className="relative">
+                    <div className="absolute -left-[31px] top-1 h-4 w-4 rounded-full border-2 border-white bg-blue-500 shadow-sm"></div>
+                    <span className="text-xs font-bold text-slate-400 block mb-1">{hist.data}</span>
+                    <p className="text-sm font-medium text-slate-800">{hist.evento}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -144,11 +178,7 @@ export default function Inscritos() {
           </div>
         </div>
 
-        {loading ? (
-          <TableSkeleton rows={5} />
-        ) : (
-          <CandidateTable candidates={filteredCandidates} onSelect={handleSelectCandidate} />
-        )}
+        <CandidateTable candidates={filteredCandidates} onSelect={handleSelectCandidate} />
       </div>
     </div>
   );
