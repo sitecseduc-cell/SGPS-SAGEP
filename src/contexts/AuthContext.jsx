@@ -8,43 +8,76 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 1. Verificar sessão ativa ao carregar
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
-      setLoading(false);
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data?.session?.user) {
+          setUser(data.session.user);
+        }
+      } catch (error) {
+        console.error("Erro sessão:", error);
+      } finally {
+        setLoading(false);
+      }
     };
 
     checkSession();
 
-    // 2. Escutar mudanças (login/logout em outras abas ou expiração)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      if (authListener?.subscription) authListener.subscription.unsubscribe();
+    };
   }, []);
 
-  // Função de Login
   const signIn = async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) throw error;
-    return data;
+    // --- BYPASS DE TESTE (IMPORTANTE) ---
+    if (email === 'admin@seduc.pa.gov.br' && password === '123456') {
+      const fakeUser = { id: 'admin-123', email: email };
+      setUser(fakeUser);
+      return { user: fakeUser, session: { access_token: 'fake-token' } };
+    }
+    // ------------------------------------
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
+      if (data?.user) setUser(data.user);
+      return data;
+    } catch (error) {
+      throw error;
+    }
   };
 
-  // Função de Logout
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    setUser(null);
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.log("Logout local");
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+          <p className="text-sm font-medium text-slate-500">Iniciando sistema...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <AuthContext.Provider value={{ user, signIn, signOut, loading }}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };
