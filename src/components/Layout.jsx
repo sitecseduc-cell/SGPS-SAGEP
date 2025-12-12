@@ -3,32 +3,33 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   LayoutDashboard, Users, Layers, Bell, LogOut, Search, 
-  FileText, Map, AlertTriangle, FileSpreadsheet, Shield, BookOpen, CheckCircle
+  FileText, Map, AlertTriangle, FileSpreadsheet, Shield, BookOpen, CheckCircle,
+  KanbanSquare 
 } from 'lucide-react';
 
 export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut } = useAuth(); // Pega a função de sair do nosso contexto
+  const { signOut } = useAuth(); // Importa a função de sair do contexto
   
-  // Função auxiliar para verificar se o link é o atual
+  // Verifica se o link é o atual para pintar de azul
   const isActive = (path) => {
     if (path === '/' && location.pathname === '/') return true;
     if (path !== '/' && location.pathname.startsWith(path)) return true;
     return false;
   };
 
-  // Função para lidar com o Logout
+  // Função de Logout conectada ao Supabase
   const handleLogout = async () => {
     try {
       await signOut();
-      navigate('/login'); // Força o redirecionamento para o login
+      navigate('/login');
     } catch (error) {
       console.error("Erro ao fazer logout:", error);
     }
   };
 
-  // Componente interno do Item do Menu
+  // Componente do Item do Menu
   const SidebarItem = ({ icon: Icon, label, to }) => (
     <Link 
       to={to}
@@ -53,7 +54,7 @@ export default function Layout() {
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
       
-      {/* --- SIDEBAR FIXA --- */}
+      {/* BARRA LATERAL (SIDEBAR) */}
       <aside className="w-72 bg-slate-900 text-white flex flex-col hidden md:flex shadow-2xl z-50">
         <div className="p-6 border-b border-slate-800">
           <div className="flex items-center space-x-3">
@@ -69,6 +70,7 @@ export default function Layout() {
           <SidebarGroup title="Principal">
             <SidebarItem icon={LayoutDashboard} label="Dashboard" to="/" />
             <SidebarItem icon={Layers} label="Gestão de Processos" to="/processos" />
+            <SidebarItem icon={KanbanSquare} label="Fluxo (Kanban)" to="/workflow" />
           </SidebarGroup>
 
           <SidebarGroup title="Inscrições & Candidatos">
@@ -93,7 +95,7 @@ export default function Layout() {
 
         <div className="p-4 border-t border-slate-800">
           <button 
-            onClick={handleLogout} // <--- AQUI ESTAVA FALTANDO
+            onClick={handleLogout}
             className="flex items-center justify-center space-x-2 text-red-400 hover:text-white hover:bg-red-500/20 transition-colors w-full px-4 py-2 rounded-lg text-sm font-medium"
           >
             <LogOut size={16} />
@@ -102,10 +104,10 @@ export default function Layout() {
         </div>
       </aside>
 
-      {/* --- ÁREA DE CONTEÚDO PRINCIPAL --- */}
+      {/* ÁREA DE CONTEÚDO */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden bg-slate-50">
         
-        {/* TOPO FIXO */}
+        {/* Cabeçalho Fixo */}
         <header className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-40 shadow-sm">
           <div>
             <h1 className="text-xl font-bold text-slate-800">SGPS - Sistema de Gestão</h1>
@@ -123,7 +125,7 @@ export default function Layout() {
           </div>
         </header>
 
-        {/* --- ONDE A MÁGICA ACONTECE --- */}
+        {/* Onde as páginas carregam */}
         <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50">
           <Outlet /> 
         </div>

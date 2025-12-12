@@ -15,7 +15,7 @@ export const AuthProvider = ({ children }) => {
           setUser(data.session.user);
         }
       } catch (error) {
-        console.error("Erro na verificação de sessão:", error);
+        console.error("Erro sessão:", error);
       } finally {
         setLoading(false);
       }
@@ -34,25 +34,21 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const signIn = async (email, password) => {
-    // --- BYPASS DE LOGIN (MODO DE TESTE) ---
-    // Isso permite entrar sem o Supabase estar configurado
+    // --- BYPASS DE TESTE (IMPORTANTE) ---
     if (email === 'admin@seduc.pa.gov.br' && password === '123456') {
       const fakeUser = { id: 'admin-123', email: email };
-      setUser(fakeUser); // Força o estado de logado
+      setUser(fakeUser);
       return { user: fakeUser, session: { access_token: 'fake-token' } };
     }
-    // ---------------------------------------
+    // ------------------------------------
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-      
       if (error) throw error;
-      
       if (data?.user) setUser(data.user);
-      
       return data;
     } catch (error) {
       throw error;
@@ -60,12 +56,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signOut = async () => {
-    // Limpa o usuário localmente (para o modo teste funcionar)
     setUser(null);
     try {
       await supabase.auth.signOut();
     } catch (error) {
-      console.log("Logout local realizado");
+      console.log("Logout local");
     }
   };
 
