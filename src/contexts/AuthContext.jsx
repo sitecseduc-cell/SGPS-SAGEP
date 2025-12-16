@@ -8,6 +8,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Verifica sessão ativa ao carregar
     const checkSession = async () => {
       try {
         const { data } = await supabase.auth.getSession();
@@ -23,6 +24,7 @@ export const AuthProvider = ({ children }) => {
 
     checkSession();
 
+    // Escuta mudanças (login, logout, etc)
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
@@ -33,22 +35,38 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
+  // Login
   const signIn = async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     if (error) throw error;
-    if (data?.user) setUser(data.user);
     return data;
   };
 
+  // --- NOVIDADE: Cadastro com Nome ---
+  const signUp = async (email, password, fullName) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName, // Salva o nome nos metadados do Supabase
+        },
+      },
+    });
+    if (error) throw error;
+    return data;
+  };
+
+  // Logout
   const signOut = async () => {
-    setUser(null);
     try {
       await supabase.auth.signOut();
-    } catch {
-      console.log("Logout local");
+      setUser(null);
+    } catch (error) {
+      console.error("Erro ao sair", error);
     }
   };
 
@@ -57,18 +75,17 @@ export const AuthProvider = ({ children }) => {
       <div className="flex h-screen w-full items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
-          <p className="text-sm font-medium text-slate-500">Iniciando sistema...</p>
+          <p className="text-sm font-medium text-slate-500">Carregando sistema...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <AuthContext.Provider value={{ user, signIn, signOut, loading }}>
+    <AuthContext.Provider value={{ user, signIn, signUp, signOut, loading }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);

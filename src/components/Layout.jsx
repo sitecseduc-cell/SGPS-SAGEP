@@ -1,17 +1,14 @@
 import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext'; // Importamos o contexto
 import {
   LayoutDashboard, Users, Layers, Bell, LogOut, Search,
   FileText, Map, AlertTriangle, FileSpreadsheet, Shield, BookOpen, CheckCircle,
   KanbanSquare, Briefcase
 } from 'lucide-react';
 
-// Componente do Item do Menu
-// eslint-disable-next-line no-unused-vars
 const SidebarItem = ({ icon: Icon, label, to }) => {
   const location = useLocation();
-  // Verifica se o link é o atual para pintar de azul
   const isActive = (path) => {
     if (path === '/' && location.pathname === '/') return true;
     if (path !== '/' && location.pathname.startsWith(path)) return true;
@@ -41,9 +38,15 @@ const SidebarGroup = ({ title, children }) => (
 
 export default function Layout() {
   const navigate = useNavigate();
-  const { signOut } = useAuth(); // Importa a função de sair do contexto
+  // Pegamos o usuário e a função signOut do contexto
+  const { user, signOut } = useAuth(); 
 
-  // Função de Logout conectada ao Supabase
+  // Lógica para pegar o nome
+  // 1. Tenta pegar o nome salvo no cadastro (user_metadata)
+  // 2. Se não tiver, pega a parte antes do @ do email
+  // 3. Se tudo falhar, mostra "Usuário"
+  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuário';
+
   const handleLogout = async () => {
     try {
       await signOut();
@@ -83,7 +86,6 @@ export default function Layout() {
           </SidebarGroup>
 
           <SidebarGroup title="Análise & Avaliação">
-
             <SidebarItem icon={BookOpen} label="Análise de Plano" to="/plano" />
             <SidebarItem icon={CheckCircle} label="Pré Avaliação" to="/pre" />
           </SidebarGroup>
@@ -119,7 +121,8 @@ export default function Layout() {
           <div className="flex items-center space-x-6">
             <div className="flex items-center text-sm text-slate-600 bg-slate-100 px-4 py-2 rounded-full border border-slate-200">
               <span className="mr-2 hidden sm:inline">Bem-vindo,</span>
-              <strong className="text-slate-800 uppercase">LUAN GIULIANO</strong>
+              {/* NOME DO USUÁRIO DINÂMICO AQUI: */}
+              <strong className="text-slate-800 uppercase">{userName}</strong>
             </div>
 
             <button className="p-2 text-slate-400 hover:text-blue-600 relative transition-colors rounded-full hover:bg-slate-50">
