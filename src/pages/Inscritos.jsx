@@ -8,6 +8,7 @@ import CandidateTable from '../components/CandidateTable';
 import NewCandidateModal from '../components/NewCandidateModal'; // <--- Import Modal Novo
 import { TableSkeleton, Spinner } from '../components/ui/Loading';
 import { supabase } from '../lib/supabaseClient';
+import { toast } from 'sonner';
 
 function useDebounce(value, delay) {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -87,7 +88,7 @@ export default function Inscritos() {
             localidade: 'A Definir',
             status: 'Em Análise',
             perfil: 'Manual',
-            data_inscricao: new Date().toLocaleDateString('pt-BR'),
+            // data_inscricao removido pois usamos created_at do banco
             documentos: [],
             historico: [{ data: new Date().toLocaleDateString('pt-BR'), evento: 'Cadastro Manual', usuario: 'Admin' }]
           }
@@ -95,14 +96,16 @@ export default function Inscritos() {
         .select();
       if (error) {
         console.error('Erro ao cadastrar candidato:', error);
+        toast.error('Erro ao cadastrar: ' + error.message);
         throw error;
       }
       if (data && data.length > 0) {
         setAllCandidates([data[0], ...allCandidates]);
-        alert('Candidato cadastrado com sucesso!');
+        toast.success('Candidato cadastrado com sucesso!');
       }
     } catch (e) {
       console.error(e);
+      toast.error('Ocorreu um erro inesperado.');
     }
   };
 
@@ -114,16 +117,22 @@ export default function Inscritos() {
 
   const handleSave = () => {
     setIsSaving(true);
-    setTimeout(() => {
-      alert(`Dados de ${editData.nome} salvos!`);
 
-      // Atualiza na lista principal também
-      setAllCandidates(prev => prev.map(c => c.id === editData.id ? editData : c));
+    // Simulação de delay
+    const promise = new Promise((resolve) => setTimeout(resolve, 1000));
 
-      setSelectedCandidate(editData);
-      setIsSaving(false);
-      setIsEditing(false);
-    }, 1000);
+    toast.promise(promise, {
+      loading: 'Salvando alterações...',
+      success: () => {
+        // Atualiza na lista principal também
+        setAllCandidates(prev => prev.map(c => c.id === editData.id ? editData : c));
+        setSelectedCandidate(editData);
+        setIsSaving(false);
+        setIsEditing(false);
+        return `Dados de ${editData.nome} salvos!`;
+      },
+      error: 'Erro ao salvar.'
+    });
   };
 
   const handleStatusChange = (newStatus) => {
@@ -132,6 +141,7 @@ export default function Inscritos() {
       setSelectedCandidate(updated);
       // Atualiza na lista principal
       setAllCandidates(prev => prev.map(c => c.id === updated.id ? updated : c));
+      toast.success(`Status alterado para ${newStatus}`);
     }
   };
 

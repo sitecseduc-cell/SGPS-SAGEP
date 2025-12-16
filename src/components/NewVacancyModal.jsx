@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { X, Briefcase, MapPin, Building, Calendar, AlertCircle, Save } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import { toast } from 'sonner';
 
-export default function NewVacancyModal({ isOpen, onClose, onSave }) {
+export default function NewVacancyModal({ isOpen, onClose, onSave, initialData }) {
     const [formData, setFormData] = useState({
         matvin: '',
         servidor: '',
@@ -18,6 +19,28 @@ export default function NewVacancyModal({ isOpen, onClose, onSave }) {
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    // Preencher formulário ao abrir para edição
+    React.useEffect(() => {
+        if (isOpen && initialData) {
+            setFormData(initialData);
+        } else if (isOpen && !initialData) {
+            // Limpar formulário se for novo cadastro
+            setFormData({
+                matvin: '',
+                servidor: '',
+                cargo_funcao: '',
+                atividade: '',
+                vacancia: '',
+                status: '',
+                ultima_lotacao: '',
+                dre: '',
+                secretaria_pertencente: '',
+                municipio: '',
+                observacao: ''
+            });
+        }
+    }, [isOpen, initialData]);
 
     if (!isOpen) return null;
 
@@ -39,30 +62,37 @@ export default function NewVacancyModal({ isOpen, onClose, onSave }) {
         }
 
         try {
-            const { data, error: sbError } = await supabase
-                .from('controle_vagas')
-                .insert([formData])
-                .select();
+            let result;
 
-            if (sbError) throw sbError;
+            if (initialData && initialData.id) {
+                // UPDATE
+                const { data, error: sbError } = await supabase
+                    .from('controle_vagas')
+                    .update(formData)
+                    .eq('id', initialData.id)
+                    .select();
 
-            onSave(data[0]);
+                if (sbError) throw sbError;
+                result = data[0];
+                toast.success('Vaga/Servidor atualizado com sucesso!');
+            } else {
+                // INSERT
+                const { data, error: sbError } = await supabase
+                    .from('controle_vagas')
+                    .insert([formData])
+                    .select();
+
+                if (sbError) throw sbError;
+                result = data[0];
+                toast.success('Vaga/Servidor salvo com sucesso!');
+            }
+
+            onSave(result);
             onClose();
-            setFormData({
-                matvin: '',
-                servidor: '',
-                cargo_funcao: '',
-                atividade: '',
-                vacancia: '',
-                status: '',
-                ultima_lotacao: '',
-                dre: '',
-                secretaria_pertencente: '',
-                municipio: '',
-                observacao: ''
-            });
+            // Limpeza ocorre via useEffect ao reabrir
         } catch (err) {
             console.error(err);
+            toast.error('Erro ao salvar vaga: ' + err.message);
             setError('Erro ao salvar vaga: ' + err.message);
         } finally {
             setLoading(false);
@@ -76,7 +106,7 @@ export default function NewVacancyModal({ isOpen, onClose, onSave }) {
                 {/* Cabeçalho */}
                 <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center sticky top-0">
                     <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                        <Briefcase size={20} className="text-blue-600" /> Nova Vaga / Servidor
+                        <Briefcase size={20} className="text-blue-600" /> {initialData ? 'Editar Vaga / Servidor' : 'Nova Vaga / Servidor'}
                     </h3>
                     <button onClick={onClose} className="p-2 bg-white rounded-lg border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors">
                         <X size={18} />

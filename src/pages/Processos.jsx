@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit, FileText, Calendar, Layers, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import NewProcessModal from '../components/NewProcessModal';
+import { toast } from 'sonner';
 
 export default function Processos() {
   const [processos, setProcessos] = useState([]);
@@ -50,11 +51,12 @@ export default function Processos() {
 
       if (error) {
         console.error('Erro ao atualizar:', error);
-        alert('Erro ao atualizar processo.');
+        toast.error('Erro ao atualizar processo.');
       } else if (data && data.length > 0) {
         // Atualiza a lista localmente
         setProcessos(processos.map(p => p.id === editingProcess.id ? data[0] : p));
         setIsModalOpen(false);
+        toast.success('Processo atualizado com sucesso!');
       }
 
     } else {
@@ -73,10 +75,11 @@ export default function Processos() {
 
       if (error) {
         console.error('Erro ao criar:', error);
-        alert('Erro ao criar processo.');
+        toast.error('Erro ao criar processo.');
       } else if (data && data.length > 0) {
         setProcessos([data[0], ...processos]);
         setIsModalOpen(false);
+        toast.success('Processo criado com sucesso!');
       }
     }
   };
@@ -86,9 +89,10 @@ export default function Processos() {
       const { error } = await supabase.from('processos').delete().eq('id', id);
       if (error) {
         console.error('Erro ao excluir:', error);
-        alert('Erro ao excluir.');
+        toast.error('Erro ao excluir.');
       } else {
         setProcessos(processos.filter(p => p.id !== id));
+        toast.success('Processo excluído.');
       }
     }
   };

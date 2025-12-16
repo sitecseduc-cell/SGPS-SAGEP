@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Filter, MoreHorizontal, FileSpreadsheet, Download, Loader2, Check } from 'lucide-react';
+import { Search, Plus, Filter, MoreHorizontal, FileSpreadsheet, Download, Loader2, Check, Edit, Trash } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import { toast } from 'sonner';
 import NewVacancyModal from '../components/NewVacancyModal';
 
 export default function ControleVagas() {
@@ -8,8 +9,38 @@ export default function ControleVagas() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [showNewVacancyModal, setShowNewVacancyModal] = useState(false);
+    const [editingVacancy, setEditingVacancy] = useState(null);
 
-    // UI States
+    // ... (UI States omitted)
+
+    const handleEditVacancy = (vaga) => {
+        setEditingVacancy(vaga);
+        setShowNewVacancyModal(true);
+    };
+
+    const handleDeleteVacancy = async (id) => {
+        if (!window.confirm('Tem certeza que deseja excluir esta vaga?')) return;
+
+        try {
+            const { error } = await supabase.from('controle_vagas').delete().eq('id', id);
+            if (error) throw error;
+            toast.success('Vaga excluída com sucesso.');
+            fetchVagas();
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao excluir vaga.');
+        }
+    };
+
+    const handleNewVacancySaved = (savedData) => {
+        fetchVagas();
+        setEditingVacancy(null); // Limpa estado de edição
+    };
+
+    const handleCloseModal = () => {
+        setShowNewVacancyModal(false);
+        setEditingVacancy(null);
+    };
     const [showColumnSelector, setShowColumnSelector] = useState(false);
     const [visibleColumns, setVisibleColumns] = useState({
         matvin: true,
@@ -63,16 +94,13 @@ export default function ControleVagas() {
             setTotalItems(count || 0);
         } catch (error) {
             console.error('Erro ao buscar vagas:', error);
+            toast.error('Não foi possível carregar as vagas.');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleNewVacancySaved = (newVacancy) => {
-        // Recarrega a lista para mostrar o novo item (ou poderia adicionar direto ao state)
-        fetchVagas();
-        // Poderia exibir um toast de sucesso aqui
-    };
+
 
     const toggleColumn = (colKey) => {
         setVisibleColumns(prev => ({
@@ -127,8 +155,9 @@ export default function ControleVagas() {
         <div className="space-y-6 animate-fadeIn pb-20 relative">
             <NewVacancyModal
                 isOpen={showNewVacancyModal}
-                onClose={() => setShowNewVacancyModal(false)}
+                onClose={handleCloseModal}
                 onSave={handleNewVacancySaved}
+                initialData={editingVacancy}
             />
 
             {/* Header */}
@@ -264,8 +293,8 @@ export default function ControleVagas() {
                                         {visibleColumns.status && (
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide border ${vaga.status === 'ATIVO'
-                                                        ? 'bg-green-50 text-green-700 border-green-200'
-                                                        : 'bg-red-50 text-red-700 border-red-200'
+                                                    ? 'bg-green-50 text-green-700 border-green-200'
+                                                    : 'bg-red-50 text-red-700 border-red-200'
                                                     }`}>
                                                     {vaga.status}
                                                 </span>
@@ -288,9 +317,22 @@ export default function ControleVagas() {
                                         {visibleColumns.obs && <td className="px-6 py-4 text-slate-400 text-xs italic max-w-[200px] truncate" title={vaga.observacao}>{vaga.observacao}</td>}
 
                                         <td className="px-6 py-4 text-right bg-white group-hover:bg-slate-50 sticky right-0 shadow-[-10px_0_20px_-10px_rgba(0,0,0,0.1)]">
-                                            <button className="text-slate-400 hover:text-blue-600 p-1.5 hover:bg-blue-50 rounded-lg transition-colors">
-                                                <MoreHorizontal size={18} />
-                                            </button>
+                                            <div className="flex justify-end gap-2">
+                                                <button
+                                                    onClick={() => handleEditVacancy(vaga)}
+                                                    className="text-slate-400 hover:text-blue-600 p-1.5 hover:bg-blue-50 rounded-lg transition-colors"
+                                                    title="Editar"
+                                                >
+                                                    <Edit size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteVacancy(vaga.id)}
+                                                    className="text-slate-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded-lg transition-colors"
+                                                    title="Excluir"
+                                                >
+                                                    <Trash size={16} />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))

@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
 
 // Importe o Contexto de Autenticação
 import { AuthProvider } from './contexts/AuthContext';
@@ -14,6 +15,12 @@ import Inscritos from './pages/Inscritos';
 import Kanban from './pages/Kanban';
 import EmConstrucao from './pages/EmConstrucao';
 import ControleVagas from './pages/ControleVagas';
+import Auditoria from './pages/Auditoria';
+import PesquisaCandidatos from './pages/PesquisaCandidatos';
+import QuantidadeInscritos from './pages/QuantidadeInscritos';
+import PreAvaliacao from './pages/PreAvaliacao';
+import Relatorios from './pages/Relatorios';
+import Seguranca from './pages/Seguranca';
 
 export default function App() {
   return (
@@ -32,11 +39,15 @@ export default function App() {
               <Route path="vagas" element={<ControleVagas />} />
               <Route path="inscritos" element={<Inscritos />} />
 
-              {/* Alias para o menu lateral */}
-              <Route path="pesquisa" element={<Inscritos />} />
-              <Route path="visualizar" element={<Inscritos />} />
+              {/* Novas Funcionalidades Independentes */}
+              <Route path="pesquisa" element={<PesquisaCandidatos />} />
+              <Route path="qtd" element={<QuantidadeInscritos />} />
+              <Route path="pre" element={<PreAvaliacao />} />
 
               <Route path="workflow" element={<Kanban />} />
+              <Route path="auditoria" element={<Auditoria />} />
+              <Route path="relatorios" element={<Relatorios />} />
+              <Route path="seguranca" element={<Seguranca />} />
 
               {/* Rota 404 para páginas não criadas */}
               <Route path="*" element={<EmConstrucao titulo="Página em Desenvolvimento" />} />
@@ -47,6 +58,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/login" replace />} />
 
         </Routes>
+        <Toaster richColors position="top-right" />
       </AuthProvider>
     </BrowserRouter>
   );
