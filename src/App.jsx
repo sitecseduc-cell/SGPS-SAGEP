@@ -13,13 +13,14 @@ import Processos from './pages/Processos';
 import Inscritos from './pages/Inscritos';
 import Kanban from './pages/Kanban';
 import EmConstrucao from './pages/EmConstrucao';
+import ControleVagas from './pages/ControleVagas';
 
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          
+
           {/* Rota Pública (Login) */}
           <Route path="/login" element={<Login />} />
 
@@ -28,14 +29,15 @@ export default function App() {
             <Route path="/" element={<Layout />}>
               <Route index element={<Dashboard />} />
               <Route path="processos" element={<Processos />} />
+              <Route path="vagas" element={<ControleVagas />} />
               <Route path="inscritos" element={<Inscritos />} />
-              
+
               {/* Alias para o menu lateral */}
               <Route path="pesquisa" element={<Inscritos />} />
               <Route path="visualizar" element={<Inscritos />} />
-              
+
               <Route path="workflow" element={<Kanban />} />
-              
+
               {/* Rota 404 para páginas não criadas */}
               <Route path="*" element={<EmConstrucao titulo="Página em Desenvolvimento" />} />
             </Route>

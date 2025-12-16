@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   LayoutDashboard, Users, Layers, Bell, LogOut, Search,
   FileText, Map, AlertTriangle, FileSpreadsheet, Shield, BookOpen, CheckCircle,
-  KanbanSquare
+  KanbanSquare, Briefcase
 } from 'lucide-react';
 
 // Componente do Item do Menu
@@ -73,6 +73,7 @@ export default function Layout() {
             <SidebarItem icon={LayoutDashboard} label="Dashboard" to="/" />
             <SidebarItem icon={Layers} label="Gestão de Processos" to="/processos" />
             <SidebarItem icon={KanbanSquare} label="Fluxo (Kanban)" to="/workflow" />
+            <SidebarItem icon={Briefcase} label="Controle de Vagas" to="/vagas" />
           </SidebarGroup>
 
           <SidebarGroup title="Inscrições & Candidatos">
