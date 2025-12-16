@@ -8,7 +8,6 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Verifica sessão ativa ao carregar
     const checkSession = async () => {
       try {
         const { data } = await supabase.auth.getSession();
@@ -24,7 +23,6 @@ export const AuthProvider = ({ children }) => {
 
     checkSession();
 
-    // Escuta mudanças (login, logout, etc)
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
@@ -35,7 +33,6 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  // Login
   const signIn = async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -45,14 +42,13 @@ export const AuthProvider = ({ children }) => {
     return data;
   };
 
-  // --- NOVIDADE: Cadastro com Nome ---
   const signUp = async (email, password, fullName) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
-          full_name: fullName, // Salva o nome nos metadados do Supabase
+          full_name: fullName,
         },
       },
     });
@@ -60,7 +56,17 @@ export const AuthProvider = ({ children }) => {
     return data;
   };
 
-  // Logout
+  // --- NOVIDADE: Função de Resetar Senha ---
+  const resetPassword = async (email) => {
+    // O redirectTo aponta para onde o usuário vai após clicar no email.
+    // Se não tiver uma página específica, ele pode ser redirecionado para a home logado.
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + '/update-password', 
+    });
+    if (error) throw error;
+    return data;
+  };
+
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
@@ -82,7 +88,7 @@ export const AuthProvider = ({ children }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, signIn, signUp, signOut, loading }}>
+    <AuthContext.Provider value={{ user, signIn, signUp, signOut, resetPassword, loading }}>
       {children}
     </AuthContext.Provider>
   );
