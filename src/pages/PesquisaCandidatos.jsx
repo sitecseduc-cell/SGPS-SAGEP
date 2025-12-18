@@ -5,9 +5,12 @@ import { toast } from 'sonner';
 
 export default function PesquisaCandidatos() {
     const [searchTerm, setSearchTerm] = useState('');
+    const [dre, setDre] = useState('Todas');
     const [candidato, setCandidato] = useState(null);
     const [loading, setLoading] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
+
+    const dres = ['Todas', 'Belém', 'Ananindeua', 'Castanhal', 'Marabá', 'Santarém', 'Altamira', 'Tucuruí', 'Breves'];
 
     const handleSearch = async (e) => {
         e.preventDefault();
@@ -18,12 +21,17 @@ export default function PesquisaCandidatos() {
         setCandidato(null);
 
         try {
-            // Busca simplificada por nome ou CPF (assumindo que CPF está na coluna cpf)
-            // Ajuste conforme seu schema real (atualmente vejo 'nome', 'cpf', 'cargo', etc em Inscritos.jsx)
-            const { data, error } = await supabase
+            // Busca simplificada por nome ou CPF com filtro opcional de DRE
+            let query = supabase
                 .from('candidatos')
                 .select('*')
-                .or(`nome.ilike.%${searchTerm}%,cpf.eq.${searchTerm}`)
+                .or(`nome.ilike.%${searchTerm}%,cpf.eq.${searchTerm}`);
+
+            if (dre !== 'Todas') {
+                query = query.ilike('localidade', `%${dre}%`);
+            }
+
+            const { data, error } = await query
                 .limit(1)
                 .maybeSingle();
 
@@ -59,6 +67,16 @@ export default function PesquisaCandidatos() {
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
+                    </div>
+                    <div className="relative w-48">
+                        <select
+                            value={dre}
+                            onChange={(e) => setDre(e.target.value)}
+                            className="w-full pl-4 pr-8 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-lg appearance-none text-slate-600"
+                        >
+                            {dres.map(d => <option key={d} value={d}>{d}</option>)}
+                        </select>
+                        <MapPin className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
                     </div>
                     <button
                         type="submit"

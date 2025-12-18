@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DndContext, DragOverlay, closestCorners } from '@dnd-kit/core';
 import KanbanColumn from '../components/KanbanColumn';
 import KanbanCard from '../components/KanbanCard';
-import { supabase } from '../lib/supabaseClient'; // Importa o cliente real
+import { fetchCandidatos, updateCandidatoStatus } from '../services/candidatos';
 
 // Estrutura vazia inicial
 const INITIAL_COLUMNS = {
@@ -12,6 +12,24 @@ const INITIAL_COLUMNS = {
   homologacao: []
 };
 
+// Mapping status labels from DB to Column IDs
+const STATUS_MAP = {
+  'Planejamento': 'planejamento',
+  'Publicado': 'publicado',
+  'Em Análise': 'analise',
+  'Homologado': 'homologacao',
+  'Classificado': 'homologacao', // Example mapping
+  'Desclassificado': 'planejamento' // Example mapping
+};
+
+// Reverse mapping for saving
+const REVERSE_STATUS_MAP = {
+  'planejamento': 'Planejamento',
+  'publicado': 'Publicado',
+  'analise': 'Em Análise',
+  'homologacao': 'Homologado'
+};
+
 export default function Kanban() {
   const [columns, setColumns] = useState(INITIAL_COLUMNS);
   const [activeId, setActiveId] = useState(null); // ID do card sendo arrastado
@@ -19,17 +37,13 @@ export default function Kanban() {
 
   // 1. BUSCAR DADOS DO SUPABASE AO CARREGAR
   useEffect(() => {
-    fetchKanbanCards();
+    loadData();
   }, []);
 
-  const fetchKanbanCards = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('kanban_cards')
-        .select('*');
-
-      if (error) throw error;
+      const data = await fetchCandidatos();
 
       // Organiza os dados nas colunas corretas
       const newColumns = {
@@ -39,19 +53,37 @@ export default function Kanban() {
         homologacao: []
       };
 
-      data.forEach(card => {
-        // Se o status do card existir nas nossas colunas, adiciona ele lá
-        if (newColumns[card.status]) {
-          newColumns[card.status].push(card);
+      data.forEach(candidate => {
+        // Map candidate status to column ID
+        // Normalizing to lowercase for safety
+        const statusLower = candidate.status?.toLowerCase() || '';
+        let columnId = 'planejamento';
+
+        if (statusLower.includes('análise') || statusLower.includes('analise')) columnId = 'analise';
+        else if (statusLower.includes('planejamento')) columnId = 'planejamento';
+        else if (statusLower.includes('publicado')) columnId = 'publicado';
+        else if (statusLower.includes('homologado') || statusLower.includes('classificado')) columnId = 'homologacao';
+        else columnId = 'planejamento';
+
+        // Create card object
+        const card = {
+          id: candidate.id,
+          title: candidate.nome,
+          date: new Date(candidate.created_at).toLocaleDateString('pt-BR'),
+          status: columnId,
+          originalStatus: candidate.status // Keep original for reference
+        };
+
+        if (newColumns[columnId]) {
+          newColumns[columnId].push(card);
         } else {
-          // Fallback: se não tiver status ou for inválido, joga para planejamento
           newColumns.planejamento.push(card);
         }
       });
 
       setColumns(newColumns);
     } catch (error) {
-      console.error('Erro ao buscar cards:', error);
+      console.error('Erro ao buscar candidatos:', error);
     } finally {
       setLoading(false);
     }
@@ -111,14 +143,9 @@ export default function Kanban() {
 
     // --- ATUALIZAÇÃO NO SUPABASE ---
     try {
-      const { error } = await supabase
-        .from('kanban_cards')
-        .update({ status: overColumnId })
-        .eq('id', activeCardId);
-
-      if (error) throw error;
-      console.log(`Card ${activeCardId} movido para ${overColumnId} com sucesso.`);
-
+      const newDbStatus = REVERSE_STATUS_MAP[overColumnId] || 'Planejamento';
+      await updateCandidatoStatus(activeCardId, newDbStatus);
+      console.log(`Candidato ${activeCardId} status atualizado para ${newDbStatus}`);
     } catch (error) {
       console.error('Erro ao mover card no banco:', error);
       alert('Erro ao salvar alteração. Revertendo...');
@@ -133,21 +160,13 @@ export default function Kanban() {
       <div className="flex justify-between items-center mb-6 px-2">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Fluxo de Trabalho</h2>
-          <p className="text-slate-500 text-sm">Gerencie o progresso dos processos seletivos.</p>
+          <p className="text-slate-500 text-sm">Gerencie o progresso dos candidatos no processo seletivo.</p>
         </div>
-        {/* Botão temporário para popular dados iniciais se a tabela estiver vazia */}
         <button
-          onClick={async () => {
-            await supabase.from('kanban_cards').insert([
-              { title: 'PSS Matemática 2025', date: '20/12/2025', status: 'planejamento' },
-              { title: 'PSS Merendeiras', date: '10/12/2025', status: 'publicado' },
-              { title: 'Psicólogos Escolares', date: '30/11/2025', status: 'homologacao' }
-            ]);
-            fetchKanbanCards();
-          }}
+          onClick={loadData}
           className="text-xs text-blue-500 underline hover:text-blue-700"
         >
-          Criar Dados de Teste
+          Atualizar Lista
         </button>
       </div>
 

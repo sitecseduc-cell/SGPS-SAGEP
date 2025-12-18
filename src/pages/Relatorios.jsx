@@ -38,6 +38,49 @@ export default function Relatorios() {
         }
     };
 
+    const exportPDF = async (table, filename, columns = '*', title = 'Relatório') => {
+        setLoading(true);
+        try {
+            const { data, error } = await supabase.from(table).select(columns);
+
+            if (error) throw error;
+            if (!data || data.length === 0) {
+                toast.info('Sem dados para exportar.');
+                return;
+            }
+
+            // Dynamic import to avoid SSR issues if using Next.js, though this is Vite. 
+            // Standard import works fine in Vite usually, but let's stick to top-level or clean usage.
+            // We need to ensure jsPDF is available.
+            const { jsPDF } = await import("jspdf");
+            await import("jspdf-autotable");
+
+            const doc = new jsPDF();
+            doc.text(title, 14, 22);
+            doc.setFontSize(10);
+            doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 28);
+
+            const tableColumn = Object.keys(data[0]);
+            const tableRows = data.map(row => Object.values(row).map(v => String(v)));
+
+            doc.autoTable({
+                head: [tableColumn],
+                body: tableRows,
+                startY: 32,
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [41, 128, 185] }
+            });
+
+            doc.save(`${filename}_${new Date().toISOString().split('T')[0]}.pdf`);
+            toast.success(`PDF ${filename} gerado!`);
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao gerar PDF.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handlePrint = () => {
         window.print();
     };
@@ -75,13 +118,22 @@ export default function Relatorios() {
                                 <p className="text-xs text-slate-500">Dados completos de inscritos</p>
                             </div>
                         </div>
-                        <button
-                            disabled={loading}
-                            onClick={() => exportCSV('candidatos', 'candidatos_full')}
-                            className="w-full py-2 border border-blue-200 text-blue-600 rounded-lg hover:bg-blue-50 font-bold text-sm flex justify-center items-center gap-2 transition-colors disabled:opacity-50"
-                        >
-                            <Download size={16} /> Baixar CSV
-                        </button>
+                        <div className="flex gap-2">
+                            <button
+                                disabled={loading}
+                                onClick={() => exportCSV('candidatos', 'candidatos_full')}
+                                className="flex-1 py-2 border border-blue-200 text-blue-600 rounded-lg hover:bg-blue-50 font-bold text-sm flex justify-center items-center gap-2 transition-colors disabled:opacity-50"
+                            >
+                                <Download size={16} /> CSV
+                            </button>
+                            <button
+                                disabled={loading}
+                                onClick={() => exportPDF('candidatos', 'candidatos_full', '*', 'Relatório de Candidatos')}
+                                className="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold text-sm flex justify-center items-center gap-2 transition-colors disabled:opacity-50"
+                            >
+                                <Printer size={16} /> PDF
+                            </button>
+                        </div>
                     </div>
 
                     {/* Relatório 2: Quadro de Vagas */}
