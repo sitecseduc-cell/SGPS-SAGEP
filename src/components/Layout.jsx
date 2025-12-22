@@ -78,7 +78,7 @@ export default function Layout() {
               className="h-8 w-8 object-cover rounded-lg"
             />
             <div className="leading-tight">
-              <span className="text-lg font-bold block">SAGEP 2.0</span>
+              <span className="text-lg font-bold block">SAGEP</span>
               <span className="text-[10px] text-slate-400 uppercase tracking-widest">Gov. Pará</span>
             </div>
           </div>
