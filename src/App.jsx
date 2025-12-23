@@ -22,6 +22,8 @@ import Seguranca from './pages/Seguranca';
 
 // --- IMPORTANTE: NOVA PÁGINA ---
 import VagasEspeciais from './pages/VagasEspeciais';
+import Planejamento from './pages/Planejamento';
+import Lotacao from './pages/Lotacao';
 
 export default function App() {
   return (
@@ -34,7 +36,9 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Layout />}>
               <Route index element={<Dashboard />} />
+              <Route path="planejamento" element={<Planejamento />} />
               <Route path="processos" element={<Processos />} />
+              <Route path="lotacao" element={<Lotacao />} />
               <Route path="vagas" element={<ControleVagas />} />
               <Route path="inscritos" element={<Inscritos />} />
 

@@ -6,10 +6,10 @@ import { supabase } from '../lib/supabaseClient';
 import { Plus, X, Save } from 'lucide-react'; // Ícones novos
 
 const INITIAL_COLUMNS = {
-  planejamento: [],
-  publicado: [],
-  analise: [],
-  homologacao: []
+  aguardando_envio: [],
+  em_analise: [],
+  pendencia: [],
+  homologado: []
 };
 
 export default function Kanban() {
@@ -32,10 +32,20 @@ export default function Kanban() {
       const { data, error } = await supabase.from('kanban_cards').select('*');
       if (error) throw error;
 
-      const newColumns = { planejamento: [], publicado: [], analise: [], homologacao: [] };
+      const newColumns = { aguardando_envio: [], em_analise: [], pendencia: [], homologado: [] };
       data.forEach(card => {
-        if (newColumns[card.status]) newColumns[card.status].push(card);
-        else newColumns.planejamento.push(card);
+        // Mapeamento de legado se necessário, ou usar direto se o banco já tiver os status novos
+        // Se status não existir nas colunas novas, joga para a primeira (Aguardando Envio)
+        if (newColumns[card.status]) {
+          newColumns[card.status].push(card);
+        } else {
+          // Mapeamento implícito de legado
+          if (card.status === 'planejamento') newColumns.aguardando_envio.push(card);
+          else if (card.status === 'publicado') newColumns.em_analise.push(card);
+          else if (card.status === 'analise') newColumns.em_analise.push(card);
+          else if (card.status === 'homologacao') newColumns.homologado.push(card);
+          else newColumns.aguardando_envio.push(card);
+        }
       });
       setColumns(newColumns);
     } catch (error) {
@@ -53,7 +63,7 @@ export default function Kanban() {
       const newCard = {
         title: newCardTitle,
         date: newCardDate || new Date().toLocaleDateString('pt-BR'),
-        status: 'planejamento'
+        status: 'aguardando_envio'
       };
 
       const { data, error } = await supabase.from('kanban_cards').insert([newCard]).select();
@@ -63,7 +73,7 @@ export default function Kanban() {
       if (data) {
         setColumns(prev => ({
           ...prev,
-          planejamento: [...prev.planejamento, data[0]]
+          aguardando_envio: [...prev.aguardando_envio, data[0]]
         }));
         setShowModal(false);
         setNewCardTitle('');
@@ -117,8 +127,8 @@ export default function Kanban() {
     <div className="h-[calc(100vh-140px)] animate-fadeIn flex flex-col relative">
       <div className="flex justify-between items-center mb-6 px-2">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Fluxo de Trabalho</h2>
-          <p className="text-slate-500 text-sm">Gerencie o progresso dos processos seletivos.</p>
+          <h2 className="text-2xl font-bold text-slate-800">Convocação & Análise</h2>
+          <p className="text-slate-500 text-sm">Validar e Homologar candidatos convocados.</p>
         </div>
 
         {/* BOTÃO ADICIONAR CARD */}
@@ -126,7 +136,7 @@ export default function Kanban() {
           onClick={() => setShowModal(true)}
           className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold transition-colors shadow-md"
         >
-          <Plus size={18} /> <span>Novo Card</span>
+          <Plus size={18} /> <span>Novo Candidato</span>
         </button>
       </div>
 
@@ -137,10 +147,10 @@ export default function Kanban() {
       ) : (
         <DndContext collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <div className="flex-1 flex overflow-x-auto pb-4 custom-scrollbar">
-            <KanbanColumn id="planejamento" title="Planejamento" items={columns.planejamento} colorHeader="bg-slate-200" />
-            <KanbanColumn id="publicado" title="Edital Publicado" items={columns.publicado} colorHeader="bg-blue-200" />
-            <KanbanColumn id="analise" title="Em Análise" items={columns.analise} colorHeader="bg-indigo-200" />
-            <KanbanColumn id="homologacao" title="Homologado" items={columns.homologacao} colorHeader="bg-emerald-200" />
+            <KanbanColumn id="aguardando_envio" title="Aguardando Envio" items={columns.aguardando_envio} colorHeader="bg-slate-200" />
+            <KanbanColumn id="em_analise" title="Em Análise" items={columns.em_analise} colorHeader="bg-blue-200" />
+            <KanbanColumn id="pendencia" title="Pendência" items={columns.pendencia} colorHeader="bg-orange-200" />
+            <KanbanColumn id="homologado" title="Homologado" items={columns.homologado} colorHeader="bg-emerald-200" />
           </div>
           <DragOverlay>
             {activeItem ? <div className="opacity-90 rotate-3 scale-105 pointer-events-none"><KanbanCard id={activeItem.id} title={activeItem.title} date={activeItem.date} color="border-blue-500" /></div> : null}

@@ -3,6 +3,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import logoSistema from '../assets/brassao.svg';
+import AiChatbot from './AiChatbot';
 
 import {
   LayoutDashboard, Users, Layers, Bell, LogOut, Search,
@@ -88,27 +89,24 @@ export default function Layout() {
 
         <nav className="flex-1 p-4 overflow-y-auto custom-scrollbar">
           <SidebarGroup title="Principal">
-            <SidebarItem icon={LayoutDashboard} label="Dashboard" to="/" />
+            <SidebarItem icon={LayoutDashboard} label="Visão Geral" to="/" />
+            <SidebarItem icon={BookOpen} label="Planejamento & Editais" to="/planejamento" />
             <SidebarItem icon={Layers} label="Gestão de Processos" to="/processos" />
-            <SidebarItem icon={KanbanSquare} label="Fluxo (Kanban)" to="/workflow" />
-            <SidebarItem icon={Briefcase} label="Controle de Vagas" to="/vagas" />
+            <SidebarItem icon={Users} label="Gestão de Inscritos" to="/inscritos" />
+            <SidebarItem icon={KanbanSquare} label="Convocação (Fluxo)" to="/workflow" />
+            <SidebarItem icon={Map} label="Lotação & Contratação" to="/lotacao" />
           </SidebarGroup>
 
-          <SidebarGroup title="Convocação Especial">
+          <SidebarGroup title="Quadro de Pessoal">
+            <SidebarItem icon={Briefcase} label="Quadro Geral" to="/vagas" />
             <SidebarItem icon={Star} label="Análise de Vagas" to="/vagas-especiais" />
           </SidebarGroup>
 
-          <SidebarGroup title="Inscrições & Candidatos">
-            <SidebarItem icon={Users} label="Gestão de Inscritos" to="/inscritos" />
+          <SidebarGroup title="Ferramentas">
             <SidebarItem icon={Search} label="Pesquisar Candidatos" to="/pesquisa" />
-            <SidebarItem icon={Users} label="Quantidade de Inscritos" to="/qtd" />
-            <SidebarItem icon={CheckCircle} label="Pré Avaliação" to="/pre" />
-          </SidebarGroup>
-
-          <SidebarGroup title="Administrativo">
-            <SidebarItem icon={ShieldAlert} label="Auditoria" to="/auditoria" />
-            <SidebarItem icon={FileSpreadsheet} label="Relatórios" to="/relatorios" />
-            <SidebarItem icon={Shield} label="Segurança" to="/seguranca" />
+            <SidebarItem icon={ShieldAlert} label="Auditoria & Controle" to="/auditoria" />
+            <SidebarItem icon={FileSpreadsheet} label="Relatórios Gerenciais" to="/relatorios" />
+            <SidebarItem icon={Shield} label="Segurança do Sistema" to="/seguranca" />
           </SidebarGroup>
         </nav>
 
@@ -188,6 +186,7 @@ export default function Layout() {
           <Outlet />
         </div>
       </main>
+      <AiChatbot />
     </div>
   );
 }

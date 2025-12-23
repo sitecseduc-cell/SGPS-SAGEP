@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ShieldAlert, Search, Database, Clock, ArrowRight, User } from 'lucide-react';
+import { ShieldAlert, Search, Database, Clock, ArrowRight, User, FileText } from 'lucide-react';
 import { TableSkeleton } from '../components/ui/Loading';
 
 export default function Auditoria() {
@@ -79,23 +79,32 @@ export default function Auditoria() {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                        <ShieldAlert className="text-blue-600" /> Auditoria do Sistema
+                        <ShieldAlert className="text-blue-600" /> Auditoria & Controle
                     </h2>
-                    <p className="text-slate-500">Registro completo de atividades e alterações de dados.</p>
+                    <p className="text-slate-500">Trilha de auditoria e emissão de relatórios oficiais.</p>
                 </div>
 
-                <div className="flex items-center gap-2 bg-white p-1 border border-slate-200 rounded-lg shadow-sm">
-                    <Database size={16} className="ml-2 text-slate-400" />
-                    <select
-                        value={filterTable}
-                        onChange={(e) => setFilterTable(e.target.value)}
-                        className="bg-transparent border-none text-sm text-slate-600 focus:ring-0 cursor-pointer py-1"
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => alert('Gerando PDF no padrão Diário Oficial (IOEPA)...')}
+                        className="flex items-center gap-2 bg-slate-800 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-slate-900 border border-slate-700 shadow-sm transition-all"
                     >
-                        <option value="todas">Todas as Tabelas</option>
-                        <option value="candidatos">Candidatos</option>
-                        <option value="controle_vagas">Controle de Vagas</option>
-                        <option value="processos">Processos</option>
-                    </select>
+                        <FileText size={16} /> Relatório IOEPA
+                    </button>
+
+                    <div className="flex items-center gap-2 bg-white p-1 border border-slate-200 rounded-lg shadow-sm">
+                        <Database size={16} className="ml-2 text-slate-400" />
+                        <select
+                            value={filterTable}
+                            onChange={(e) => setFilterTable(e.target.value)}
+                            className="bg-transparent border-none text-sm text-slate-600 focus:ring-0 cursor-pointer py-1 outline-none"
+                        >
+                            <option value="todas">Todas as Tabelas</option>
+                            <option value="candidatos">Candidatos</option>
+                            <option value="controle_vagas">Controle de Vagas</option>
+                            <option value="processos">Processos</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
