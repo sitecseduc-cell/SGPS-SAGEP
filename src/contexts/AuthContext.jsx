@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import logoSistema from '../assets/brassao.svg';
 
@@ -7,6 +8,7 @@ const AuthContext = createContext({});
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const checkSession = async () => {
@@ -24,9 +26,16 @@ export const AuthProvider = ({ children }) => {
 
     checkSession();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
+
+      console.log("Auth Event:", event); // Debug log
+
+      if (event === 'PASSWORD_RECOVERY') {
+        // Usa navigate para transição suave sem perder estado
+        navigate('/update-password');
+      }
     });
 
     return () => {

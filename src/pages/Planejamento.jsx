@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Layers, List, Edit3, Plus, Trash2, Save } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import ModalNovaVaga from '../components/ModalNovaVaga';
+import ModalNovoCriterio from '../components/ModalNovoCriterio';
 
 export default function Planejamento() {
     const [activeTab, setActiveTab] = useState('vagas'); // 'vagas' or 'pontuacao'
@@ -49,6 +51,8 @@ export default function Planejamento() {
 function ConfiguradorVagas() {
     const [vagas, setVagas] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [showModal, setShowModal] = useState(false);
+    const [editingVaga, setEditingVaga] = useState(null);
 
     useEffect(() => {
         fetchVagas();
@@ -67,6 +71,24 @@ function ConfiguradorVagas() {
         }
     };
 
+    const handleEdit = (vaga) => {
+        setEditingVaga(vaga);
+        setShowModal(true);
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm("Tem certeza que deseja excluir esta vaga?")) return;
+
+        try {
+            const { error } = await supabase.from('vagas').delete().eq('id', id);
+            if (error) throw error;
+            fetchVagas();
+        } catch (error) {
+            console.error("Erro ao excluir", error);
+            alert("Erro ao excluir: " + error.message);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -74,7 +96,7 @@ function ConfiguradorVagas() {
                     <Layers size={20} className="text-blue-500" /> Vagas por Lotação
                 </h3>
                 <button
-                    onClick={() => alert('Backend: Implementar cadastro')}
+                    onClick={() => setShowModal(true)}
                     className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-blue-700"
                 >
                     <Plus size={16} /> Adicionar Vaga
@@ -105,8 +127,8 @@ function ConfiguradorVagas() {
                                     <td className="px-4 py-3 text-slate-600">{v.escola}</td>
                                     <td className="px-4 py-3 text-center font-bold text-blue-600">{v.qtd}</td>
                                     <td className="px-4 py-3 text-right text-slate-400">
-                                        <button className="hover:text-blue-600 mr-2"><Edit3 size={16} /></button>
-                                        <button className="hover:text-red-600"><Trash2 size={16} /></button>
+                                        <button onClick={() => handleEdit(v)} className="hover:text-blue-600 mr-2"><Edit3 size={16} /></button>
+                                        <button onClick={() => handleDelete(v.id)} className="hover:text-red-600"><Trash2 size={16} /></button>
                                     </td>
                                 </tr>
                             ))
@@ -114,7 +136,20 @@ function ConfiguradorVagas() {
                     </tbody>
                 </table>
             </div>
-        </div>
+
+            {showModal && (
+                <ModalNovaVaga
+                    initData={editingVaga}
+                    onClose={() => {
+                        setShowModal(false);
+                        setEditingVaga(null);
+                    }}
+                    onSuccess={() => {
+                        fetchVagas();
+                    }}
+                />
+            )}
+        </div >
     );
 }
 
@@ -122,6 +157,8 @@ function ConfiguradorVagas() {
 function MatrizPontuacao() {
     const [criterios, setCriterios] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [showModal, setShowModal] = useState(false);
+    const [editingCriterio, setEditingCriterio] = useState(null);
 
     useEffect(() => {
         fetchCriterios();
@@ -140,6 +177,24 @@ function MatrizPontuacao() {
         }
     };
 
+    const handleEdit = (criterio) => {
+        setEditingCriterio(criterio);
+        setShowModal(true);
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm("Tem certeza que deseja excluir este critério?")) return;
+
+        try {
+            const { error } = await supabase.from('criterios_pontuacao').delete().eq('id', id);
+            if (error) throw error;
+            fetchCriterios();
+        } catch (error) {
+            console.error("Erro ao excluir", error);
+            alert("Erro ao excluir: " + error.message);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -147,7 +202,7 @@ function MatrizPontuacao() {
                     <List size={20} className="text-emerald-500" /> Tabela de Títulos
                 </h3>
                 <button
-                    onClick={() => alert('Backend: Implementar cadastro')}
+                    onClick={() => setShowModal(true)}
                     className="flex items-center gap-2 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-emerald-700"
                 >
                     <Plus size={16} /> Novo Critério
@@ -180,8 +235,8 @@ function MatrizPontuacao() {
                                     </td>
                                     <td className="px-4 py-3 text-center font-bold text-emerald-600">{c.pontos ? c.pontos.toFixed(1) : '0.0'}</td>
                                     <td className="px-4 py-3 text-right text-slate-400">
-                                        <button className="hover:text-blue-600 mr-2"><Edit3 size={16} /></button>
-                                        <button className="hover:text-red-600"><Trash2 size={16} /></button>
+                                        <button onClick={() => handleEdit(c)} className="hover:text-blue-600 mr-2"><Edit3 size={16} /></button>
+                                        <button onClick={() => handleDelete(c.id)} className="hover:text-red-600"><Trash2 size={16} /></button>
                                     </td>
                                 </tr>
                             ))
@@ -195,6 +250,18 @@ function MatrizPontuacao() {
                     <strong>Nota:</strong> Alterações na matriz de pontuação só afetarão novos processos seletivos ou reprocessamentos iniciados após a mudança.
                 </p>
             </div>
+            {showModal && (
+                <ModalNovoCriterio
+                    initData={editingCriterio}
+                    onClose={() => {
+                        setShowModal(false);
+                        setEditingCriterio(null);
+                    }}
+                    onSuccess={() => {
+                        fetchCriterios();
+                    }}
+                />
+            )}
         </div>
     );
 }

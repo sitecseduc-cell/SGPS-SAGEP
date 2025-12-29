@@ -24,6 +24,7 @@ import Seguranca from './pages/Seguranca';
 import VagasEspeciais from './pages/VagasEspeciais';
 import Planejamento from './pages/Planejamento';
 import Lotacao from './pages/Lotacao';
+import UpdatePassword from './pages/UpdatePassword';
 
 export default function App() {
   return (
@@ -32,6 +33,7 @@ export default function App() {
         <Routes>
 
           <Route path="/login" element={<Login />} />
+          <Route path="/update-password" element={<UpdatePassword />} />
 
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Layout />}>
