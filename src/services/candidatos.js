@@ -20,7 +20,11 @@ export const fetchKanbanCards = async () => {
 
 /** Create a new candidate */
 export const createCandidato = async (candidato) => {
-  const { data, error } = await supabase.from('candidatos').insert([candidato]).select();
+  const { data, error } = await supabase
+    .from('candidatos')
+    .insert([candidato])
+    .select();
+
   if (error) throw error;
   return data[0];
 };
