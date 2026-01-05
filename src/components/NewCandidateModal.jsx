@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { X, User, Mail, Phone, FileText, AlertCircle, Save } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, User, Mail, Phone, FileText, AlertCircle, Save, ToggleLeft, ToggleRight, PenTool } from 'lucide-react';
+import { planejamentoService } from '../services/planejamentoService';
 
 export default function NewCandidateModal({ isOpen, onClose, onSave }) {
     const [formData, setFormData] = useState({
@@ -10,6 +11,30 @@ export default function NewCandidateModal({ isOpen, onClose, onSave }) {
         vaga: ''
     });
     const [error, setError] = useState('');
+    const [availableVagas, setAvailableVagas] = useState([]);
+    const [isManualVaga, setIsManualVaga] = useState(false);
+    const [loadingVagas, setLoadingVagas] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchVagas();
+        }
+    }, [isOpen]);
+
+    const fetchVagas = async () => {
+        try {
+            setLoadingVagas(true);
+            const data = await planejamentoService.getVagas();
+            // Filtrar apenas o cargo/função para a lista, removendo duplicatas
+            const uniqueVagas = [...new Set(data.map(v => v.cargo || v.funcao))].filter(Boolean);
+            setAvailableVagas(uniqueVagas);
+        } catch (error) {
+            console.error('Erro ao buscar vagas:', error);
+            // Fallback silencioso ou toast se necessário
+        } finally {
+            setLoadingVagas(false);
+        }
+    };
 
     if (!isOpen) return null;
 
@@ -73,6 +98,7 @@ export default function NewCandidateModal({ isOpen, onClose, onSave }) {
         onSave(formData);
         onClose();
         setFormData({ nome: '', cpf: '', email: '', telefone: '', vaga: '' });
+        setIsManualVaga(false);
     };
 
     return (
@@ -141,22 +167,69 @@ export default function NewCandidateModal({ isOpen, onClose, onSave }) {
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-slate-500 uppercase">Vaga Pretendida</label>
+                            <div className="flex justify-between items-center">
+                                <label className="text-xs font-bold text-slate-500 uppercase">Vaga Pretendida</label>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsManualVaga(!isManualVaga);
+                                        setFormData(prev => ({ ...prev, vaga: '' }));
+                                    }}
+                                    className="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center cursor-pointer transition-colors"
+                                >
+                                    {isManualVaga ? (
+                                        <>
+                                            <ToggleRight size={16} className="mr-1 text-emerald-500" /> Selecionar da Lista
+                                        </>
+                                    ) : (
+                                        <>
+                                            <PenTool size={14} className="mr-1" /> Digitar Manualmente
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+
                             <div className="relative">
                                 <FileText size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                                <select
-                                    name="vaga"
-                                    className="w-full pl-10 pr-3 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all appearance-none text-slate-600"
-                                    value={formData.vaga} onChange={handleChange}
-                                >
-                                    <option value="">Selecione uma vaga...</option>
-                                    <option value="Professor de Matemática">Professor de Matemática</option>
-                                    <option value="Professor de Língua Portuguesa">Professor de Língua Portuguesa</option>
-                                    <option value="Merendeira">Merendeira</option>
-                                    <option value="Vigia">Vigia</option>
-                                    <option value="Técnico Administrativo">Técnico Administrativo</option>
-                                </select>
+
+                                {isManualVaga ? (
+                                    <input
+                                        type="text"
+                                        name="vaga"
+                                        placeholder="Digite o nome da vaga..."
+                                        className="w-full pl-10 pr-3 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                        value={formData.vaga}
+                                        onChange={handleChange}
+                                        autoFocus
+                                    />
+                                ) : (
+                                    <select
+                                        name="vaga"
+                                        className="w-full pl-10 pr-3 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all appearance-none text-slate-600"
+                                        value={formData.vaga}
+                                        onChange={handleChange}
+                                        disabled={loadingVagas}
+                                    >
+                                        <option value="">
+                                            {loadingVagas ? 'Carregando vagas...' : 'Selecione uma vaga...'}
+                                        </option>
+
+                                        {!loadingVagas && availableVagas.map((v, index) => (
+                                            <option key={index} value={v}>{v}</option>
+                                        ))}
+
+                                        {/* Fallback caso não tenha vagas ou para garantir opções básicas se vazio */}
+                                        {!loadingVagas && availableVagas.length === 0 && (
+                                            <option value="" disabled>Nenhuma vaga cadastrada.</option>
+                                        )}
+                                    </select>
+                                )}
                             </div>
+                            <p className="text-[10px] text-slate-400 text-right">
+                                {isManualVaga
+                                    ? "Digite exatamente conforme o edital."
+                                    : "Mostrando vagas cadastradas no Planejamento."}
+                            </p>
                         </div>
 
                         <div className="pt-4 flex gap-3">

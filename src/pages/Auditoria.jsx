@@ -2,8 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ShieldAlert, Search, Database, Clock, ArrowRight, User, FileText } from 'lucide-react';
+import { ShieldAlert, Search, Database, Clock, ArrowRight, User, FileText, Download } from 'lucide-react';
 import { TableSkeleton } from '../components/ui/Loading';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import { toast } from 'sonner';
 
 export default function Auditoria() {
     const [logs, setLogs] = useState([]);
@@ -32,10 +35,81 @@ export default function Auditoria() {
             setLogs(data || []);
         } catch (error) {
             console.error('Erro ao buscar logs:', error);
-            // Em produção, usar toast.error aqui
+            toast.error('Erro ao carregar auditoria.');
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleGenerateIOPE = () => {
+        if (logs.length === 0) {
+            toast.warning('Não há dados para gerar o relatório.');
+            return;
+        }
+
+        const doc = new jsPDF();
+
+        // --- CABEÇALHO PADRÃO OFICIAL ---
+        // Aqui simulamos o Brasão e timbre
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.text("ESTADO DO PARÁ", 105, 15, { align: "center" });
+        doc.text("SECRETARIA DE GESTÃO E PLANEJAMENTO", 105, 20, { align: "center" });
+        doc.text("SISTEMA DE GESTÃO DE PROCESSO SELETIVO - SGPS", 105, 25, { align: "center" });
+
+        doc.setLineWidth(0.5);
+        doc.line(20, 30, 190, 30);
+
+        doc.setFontSize(14);
+        doc.text("RELATÓRIO DE AUDITORIA E CONTROLE", 105, 40, { align: "center" });
+
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        const dataEmissao = format(new Date(), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR });
+        doc.text(`Emitido em: ${dataEmissao}`, 20, 50);
+        doc.text(`Protocolo: ${Math.random().toString(36).substr(2, 9).toUpperCase()}`, 150, 50);
+        doc.text(`Filtro Aplicado: ${filterTable === 'todas' ? 'Geral (Todas as Tabelas)' : filterTable.toUpperCase()}`, 20, 55);
+
+        // --- TABELA ---
+        const tableColumn = ["Data/Hora", "ID Realizador", "Ação", "Tabela", "Resumo"];
+        const tableRows = [];
+
+        logs.forEach(log => {
+            const logData = [
+                format(new Date(log.created_at), "dd/MM/yyyy HH:mm"),
+                log.user_id ? log.user_id.substring(0, 8) + '...' : 'SISTEMA',
+                log.operation,
+                log.table_name,
+                // Tenta criar um resumo legível
+                log.operation === 'INSERT' ? 'Novo Registro' :
+                    log.operation === 'DELETE' ? 'Registro Removido' :
+                        'Atualização de Dados'
+            ];
+            tableRows.push(logData);
+        });
+
+        doc.autoTable({
+            head: [tableColumn],
+            body: tableRows,
+            startY: 60,
+            theme: 'striped',
+            headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' }, // Azul oficial
+            styles: { fontSize: 8, cellPadding: 2 },
+            alternateRowStyles: { fillColor: [245, 245, 245] }
+        });
+
+        // --- RODAPÉ ---
+        const pageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.text(`Página ${i} de ${pageCount}`, 190, 285, { align: "right" });
+            doc.text("Documento gerado eletronicamente pelo sistema oficial SGPS/SAGEP.", 105, 285, { align: "center" });
+            doc.text("IOEPA - Imprensa Oficial do Estado", 20, 285, { align: "left" });
+        }
+
+        doc.save(`Relatorio_IOEPA_${format(new Date(), "ddMMyyyy_HHmm")}.pdf`);
+        toast.success('Relatório IOEPA gerado com sucesso!');
     };
 
     // Função auxiliar para renderizar mudança resumida
@@ -86,10 +160,10 @@ export default function Auditoria() {
 
                 <div className="flex items-center gap-2">
                     <button
-                        onClick={() => alert('Gerando PDF no padrão Diário Oficial (IOEPA)...')}
+                        onClick={handleGenerateIOPE}
                         className="flex items-center gap-2 bg-slate-800 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-slate-900 border border-slate-700 shadow-sm transition-all"
                     >
-                        <FileText size={16} /> Relatório IOEPA
+                        <Download size={16} /> Relatório IOEPA
                     </button>
 
                     <div className="flex items-center gap-2 bg-white p-1 border border-slate-200 rounded-lg shadow-sm">

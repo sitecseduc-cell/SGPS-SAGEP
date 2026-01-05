@@ -1,17 +1,80 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, FileText, Calendar, Layers, Trash2 } from 'lucide-react';
+import { Plus, Edit, FileText, Calendar, Layers, Trash2, Sparkles, Upload } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import NewProcessModal from '../components/NewProcessModal';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
+import * as pdfjsLib from 'pdfjs-dist';
+import { GeminiService } from '../services/GeminiService';
+
+// Configurar worker do PDF.js (necessário para vite)
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 export default function Processos() {
   const [processos, setProcessos] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProcess, setEditingProcess] = useState(null); // Estado para saber quem estamos editando
+  const [analyzing, setAnalyzing] = useState(false);
+  const navigate = useNavigate();
+  const fileInputRef = React.useRef(null);
 
   useEffect(() => {
     fetchProcessos();
   }, []);
+
+  // --- FUNÇÕES DE NPL / IA ---
+  const handleanalyzeClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      toast.error('Por favor, envie um arquivo PDF.');
+      return;
+    }
+
+    try {
+      setAnalyzing(true);
+      toast.info('Lendo Edital e extraindo informações...');
+
+      // 1. Extrair texto do PDF
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        fullText += textContent.items.map(item => item.str).join(' ');
+      }
+
+      // 2. Enviar para Gemini
+      toast.info('Analisando com IA (Gemini)...');
+      const aiData = await GeminiService.analyzeEdital(fullText);
+
+      // 3. Abrir Modal com dados preenchidos
+      setEditingProcess({
+        nome: aiData.nome || '',
+        descricao: aiData.descricao || '',
+        inicio: aiData.inicio || '',
+        fim: aiData.fim || '',
+        isAiGenerated: true // Flag opcional para indicar origem
+      });
+      setIsModalOpen(true);
+      toast.success('Edital analisado! Verifique os dados.');
+
+    } catch (error) {
+      console.error('Erro na análise:', error);
+      toast.error('Falha ao analisar o edital. ' + error.message);
+    } finally {
+      setAnalyzing(false);
+      // Limpa input para permitir selecionar o mesmo arquivo novamente se quiser
+      event.target.value = '';
+    }
+  };
 
   const fetchProcessos = async () => {
     const { data, error } = await supabase
@@ -117,12 +180,29 @@ export default function Processos() {
           <h2 className="text-2xl font-bold text-slate-800">Gerenciamento dos Processos</h2>
           <p className="text-slate-500 text-sm mt-1">Administre editais e fases de seleção.</p>
         </div>
-        <button
-          onClick={handleOpenCreate}
-          className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-500/20 transition-all hover:scale-105 active:scale-95"
-        >
-          <Plus size={20} /><span>Cadastrar Processo</span>
-        </button>
+        <div className="flex gap-3">
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            accept="application/pdf"
+            onChange={handleFileUpload}
+          />
+          <button
+            onClick={handleanalyzeClick}
+            disabled={analyzing}
+            className="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 rounded-xl font-bold shadow-lg shadow-emerald-500/20 transition-all hover:scale-105 active:scale-95 disabled:opacity-70 disabled:cursor-wait"
+          >
+            {analyzing ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <Sparkles size={20} />}
+            <span>{analyzing ? 'Analisando...' : 'Analisar Edital (IA)'}</span>
+          </button>
+          <button
+            onClick={handleOpenCreate}
+            className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-500/20 transition-all hover:scale-105 active:scale-95"
+          >
+            <Plus size={20} /><span>Cadastrar Processo</span>
+          </button>
+        </div>
       </div>
       {/* Tabela */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -165,7 +245,11 @@ export default function Processos() {
                   </td>
                   <td className="px-6 py-5 text-right">
                     <div className="flex justify-end space-x-2">
-                      <button className="p-2 text-slate-400 hover:text-blue-600 rounded-lg transition-colors" title="Editar Fases">
+                      <button
+                        onClick={() => navigate('/workflow', { state: { processId: proc.id, processName: proc.nome } })}
+                        className="p-2 text-slate-400 hover:text-blue-600 rounded-lg transition-colors"
+                        title="Editar Fases (Kanban)"
+                      >
                         <Layers size={18} />
                       </button>
 

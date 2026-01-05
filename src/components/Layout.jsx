@@ -99,7 +99,7 @@ export default function Layout() {
 
           <SidebarGroup title="Quadro de Pessoal">
             <SidebarItem icon={Briefcase} label="Quadro Geral" to="/vagas" />
-            <SidebarItem icon={Star} label="Análise de Vagas" to="/vagas-especiais" />
+            <SidebarItem icon={Star} label="Convocação Especial" to="/vagas-especiais" />
           </SidebarGroup>
 
           <SidebarGroup title="Ferramentas">
