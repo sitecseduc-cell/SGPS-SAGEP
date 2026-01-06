@@ -2,16 +2,164 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ShieldAlert, Search, Database, Clock, ArrowRight, User, FileText, Download } from 'lucide-react';
+import { ShieldAlert, Search, Database, Clock, ArrowRight, User, FileText, Download, Eye, X, ChevronRight, AlertCircle } from 'lucide-react';
 import { TableSkeleton } from '../components/ui/Loading';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { toast } from 'sonner';
 
+// --- COMPONENTE MODAL DE DETALHES ---
+const AuditDetailsModal = ({ isOpen, onClose, log }) => {
+    if (!isOpen || !log) return null;
+
+    const formatValue = (val) => {
+        if (val === null || val === undefined) return <span className="text-slate-400 italic">null</span>;
+        if (typeof val === 'object') return JSON.stringify(val);
+        if (typeof val === 'boolean') return val ? 'Sim' : 'Não';
+        return String(val);
+    };
+
+    // Identificar mudanças
+    const getChanges = () => {
+        if (log.operation === 'INSERT') {
+            return Object.keys(log.new_data || {}).map(key => ({
+                key,
+                oldVal: null,
+                newVal: log.new_data[key],
+                type: 'add'
+            }));
+        }
+        if (log.operation === 'DELETE') {
+            return Object.keys(log.old_data || {}).map(key => ({
+                key,
+                oldVal: log.old_data[key],
+                newVal: null,
+                type: 'remove'
+            }));
+        }
+        // UPDATE
+        const keys = new Set([...Object.keys(log.old_data || {}), ...Object.keys(log.new_data || {})]);
+        const changes = [];
+        keys.forEach(key => {
+            const oldV = log.old_data?.[key];
+            const newV = log.new_data?.[key];
+            if (JSON.stringify(oldV) !== JSON.stringify(newV)) {
+                changes.push({ key, oldVal: oldV, newVal: newV, type: 'change' });
+            }
+        });
+        return changes;
+    };
+
+    const changes = getChanges();
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] animate-scaleIn">
+                {/* Header do Modal */}
+                <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${log.operation === 'INSERT' ? 'bg-green-100 text-green-600' :
+                                log.operation === 'DELETE' ? 'bg-red-100 text-red-600' :
+                                    'bg-blue-100 text-blue-600'
+                            }`}>
+                            <FileText size={20} />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-800">Detalhes da Auditoria</h3>
+                            <p className="text-xs text-slate-500 font-mono text-xs">{log.id}</p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-200 rounded-full transition-colors">
+                        <X size={20} />
+                    </button>
+                </div>
+
+                {/* Conteúdo Scrollável */}
+                <div className="p-6 overflow-y-auto custom-scrollbar space-y-6">
+
+                    {/* Metadados */}
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                            <span className="block text-xs font-bold text-slate-400 uppercase mb-1">Tabela Afetada</span>
+                            <span className="font-mono text-slate-700 font-bold">{log.table_name}</span>
+                        </div>
+                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                            <span className="block text-xs font-bold text-slate-400 uppercase mb-1">Data e Hora</span>
+                            <span className="text-slate-700 font-medium">{format(new Date(log.created_at), "dd/MM/yyyy 'às' HH:mm:ss", { locale: ptBR })}</span>
+                        </div>
+                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 col-span-2">
+                            <span className="block text-xs font-bold text-slate-400 uppercase mb-1">Responsável (User ID)</span>
+                            <div className="flex items-center gap-2">
+                                <User size={14} className="text-slate-400" />
+                                <span className="font-mono text-xs text-slate-600 break-all">{log.user_id || 'Sistema / Automático'}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Diff Viewer */}
+                    <div>
+                        <h4 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                            <Database size={16} className="text-slate-400" />
+                            Alterações Realizadas
+                        </h4>
+
+                        {changes.length === 0 ? (
+                            <div className="p-4 bg-slate-50 text-slate-500 text-center rounded-lg italic text-sm">
+                                Nenhuma alteração de dados detectada (Metadados ou log vazio).
+                            </div>
+                        ) : (
+                            <div className="border border-slate-200 rounded-xl overflow-hidden text-sm shadow-sm">
+                                <div className="grid grid-cols-12 bg-slate-50 border-b border-slate-200 py-2 px-4 font-bold text-slate-500 text-xs uppercase tracking-wide">
+                                    <div className="col-span-3">Campo</div>
+                                    <div className="col-span-4">Valor Anterior</div>
+                                    <div className="col-span-1 text-center"></div>
+                                    <div className="col-span-4">Novo Valor</div>
+                                </div>
+                                <div className="divide-y divide-slate-100 bg-white">
+                                    {changes.map((change, idx) => (
+                                        <div key={idx} className="grid grid-cols-12 py-3 px-4 hover:bg-slate-50 transition-colors items-center">
+                                            <div className="col-span-3 font-mono text-slate-600 text-xs font-semibold break-words pr-2">
+                                                {change.key}
+                                            </div>
+
+                                            <div className={`col-span-4 break-words p-1.5 rounded ${change.type === 'add' ? 'text-slate-300' : 'text-red-700 bg-red-50 border border-red-100'}`}>
+                                                {change.type === 'add' ? <span className="opacity-30">-</span> : formatValue(change.oldVal)}
+                                            </div>
+
+                                            <div className="col-span-1 flex justify-center text-slate-300">
+                                                <ArrowRight size={14} />
+                                            </div>
+
+                                            <div className={`col-span-4 break-words p-1.5 rounded ${change.type === 'remove' ? 'text-slate-300' : 'text-emerald-700 bg-emerald-50 border border-emerald-100'}`}>
+                                                {change.type === 'remove' ? <span className="opacity-30">-</span> : formatValue(change.newVal)}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+                    <button onClick={onClose} className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg font-bold text-sm transition-colors shadow-sm">
+                        Fechar
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export default function Auditoria() {
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filterTable, setFilterTable] = useState('todas');
+
+    // Estados do Modal
+    const [selectedLog, setSelectedLog] = useState(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     useEffect(() => {
         fetchLogs();
@@ -39,6 +187,11 @@ export default function Auditoria() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleOpenDetails = (log) => {
+        setSelectedLog(log);
+        setIsModalOpen(true);
     };
 
     const handleGenerateIOPE = () => {
@@ -112,38 +265,41 @@ export default function Auditoria() {
         toast.success('Relatório IOEPA gerado com sucesso!');
     };
 
-    // Função auxiliar para renderizar mudança resumida
+    // Função auxiliar para renderizar mudança resumida (Preview na Tabela)
     const renderChangeSummary = (op, oldData, newData) => {
-        if (op === 'INSERT') return <span className="text-green-600">Novo registro criado</span>;
-        if (op === 'DELETE') return <span className="text-red-600">Registro removido</span>;
+        if (op === 'INSERT') return <span className="text-green-600 font-medium">Novo registro criado</span>;
+        if (op === 'DELETE') return <span className="text-red-600 font-medium">Registro removido</span>;
 
         // Para UPDATE, tenta achar o campo que mudou (comparação simples)
-        if (!oldData || !newData) return <span className="text-blue-600">Atualização realizada</span>;
+        if (!oldData || !newData) return <span className="text-blue-600 font-medium">Atualização realizada</span>;
 
         const changes = [];
         Object.keys(newData).forEach(key => {
+            // Ignorar campos de auditoria interna se tiver
+            if (['updated_at'].includes(key)) return;
+
             if (JSON.stringify(newData[key]) !== JSON.stringify(oldData[key])) {
                 changes.push(key);
             }
         });
 
-        if (changes.length === 0) return <span className="text-slate-400">Sem alterações visíveis</span>;
+        if (changes.length === 0) return <span className="text-slate-400 italic">Sem alterações visíveis</span>;
 
         return (
-            <div className="text-xs">
+            <div className="text-xs text-slate-600">
                 <span className="font-semibold text-slate-700">Alterado: </span>
-                {changes.slice(0, 3).join(', ')}
-                {changes.length > 3 && '...'}
+                {changes.slice(0, 2).join(', ')}
+                {changes.length > 2 && <span className="text-slate-400"> (+{changes.length - 2})</span>}
             </div>
         );
     };
 
     const getOperationBadge = (op) => {
         switch (op) {
-            case 'INSERT': return <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold border border-green-200">ADIÇÃO</span>;
-            case 'UPDATE': return <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold border border-blue-200">EDIÇÃO</span>;
-            case 'DELETE': return <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded text-[10px] font-bold border border-red-200">REMOÇÃO</span>;
-            default: return <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-bold">AÇÃO</span>;
+            case 'INSERT': return <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-[10px] font-extrabold border border-green-200 tracking-wider">ADIÇÃO</span>;
+            case 'UPDATE': return <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-[10px] font-extrabold border border-blue-200 tracking-wider">EDIÇÃO</span>;
+            case 'DELETE': return <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-[10px] font-extrabold border border-red-200 tracking-wider">REMOÇÃO</span>;
+            default: return <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-[10px] font-extrabold tracking-wider">AÇÃO</span>;
         }
     };
 
@@ -155,7 +311,7 @@ export default function Auditoria() {
                     <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
                         <ShieldAlert className="text-blue-600" /> Auditoria & Controle
                     </h2>
-                    <p className="text-slate-500">Trilha de auditoria e emissão de relatórios oficiais.</p>
+                    <p className="text-slate-500">Trilha de auditoria detalhada e emissão de relatórios.</p>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -188,11 +344,11 @@ export default function Auditoria() {
                     <table className="w-full text-sm text-left">
                         <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
                             <tr>
-                                <th className="px-6 py-4 font-bold">Data/Hora</th>
-                                <th className="px-6 py-4 font-bold">Usuário</th>
-                                <th className="px-6 py-4 font-bold">Ação</th>
-                                <th className="px-6 py-4 font-bold">Tabela</th>
-                                <th className="px-6 py-4 font-bold">Detalhes</th>
+                                <th className="px-6 py-4 font-bold w-[12%]">Data/Hora</th>
+                                <th className="px-6 py-4 font-bold w-[12%]">Usuário</th>
+                                <th className="px-6 py-4 font-bold w-[8%]">Ação</th>
+                                <th className="px-6 py-4 font-bold w-[13%]">Tabela</th>
+                                <th className="px-6 py-4 font-bold w-[55%]">Resumo / Detalhes</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -213,31 +369,44 @@ export default function Auditoria() {
                                 </tr>
                             ) : (
                                 logs.map((log) => (
-                                    <tr key={log.id} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap text-slate-600">
+                                    <tr
+                                        key={log.id}
+                                        className="hover:bg-blue-50/50 transition-colors cursor-pointer group"
+                                        onClick={() => handleOpenDetails(log)}
+                                    >
+                                        <td className="px-6 py-4 whitespace-nowrap text-slate-600 align-top">
                                             <div className="flex items-center gap-2">
                                                 <Clock size={14} className="text-slate-400" />
                                                 {format(new Date(log.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-6 py-4 whitespace-nowrap align-top">
                                             <div className="flex items-center gap-2 text-slate-700 font-medium">
-                                                <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs border border-slate-200">
-                                                    <User size={12} className="text-slate-400" />
+                                                <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs border border-slate-200 uppercase shrink-0">
+                                                    {(log.user_id || 'S').charAt(0)}
                                                 </div>
-                                                <span className="truncate max-w-[150px]" title={log.user_id}>
-                                                    {log.user_id ? log.user_id.substring(0, 8) + '...' : 'Sistema'}
+                                                <span className="truncate max-w-[120px] text-xs" title={log.user_id}>
+                                                    {log.user_id ? log.user_id.split('-')[0] + '...' : 'Sistema'}
                                                 </span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-6 py-4 whitespace-nowrap align-top">
                                             {getOperationBadge(log.operation)}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap font-mono text-xs text-slate-500">
-                                            {log.table_name}
+                                        <td className="px-6 py-4 whitespace-nowrap font-mono text-xs text-slate-500 font-bold align-top">
+                                            <span className="bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                                                {log.table_name}
+                                            </span>
                                         </td>
-                                        <td className="px-6 py-4 text-slate-600">
-                                            {renderChangeSummary(log.operation, log.old_data, log.new_data)}
+                                        <td className="px-6 py-4 text-slate-600 align-top">
+                                            <div className="flex items-start justify-between gap-4 w-full">
+                                                <div className="flex-1 break-all">
+                                                    {renderChangeSummary(log.operation, log.old_data, log.new_data)}
+                                                </div>
+                                                <button className="text-slate-300 group-hover:text-blue-500 transition-colors bg-slate-50 p-1.5 rounded-full hover:bg-white shadow-sm border border-transparent hover:border-slate-100 shrink-0 mt-[-4px]">
+                                                    <Eye size={16} />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
@@ -248,12 +417,19 @@ export default function Auditoria() {
             </div>
 
             <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-700 flex items-start gap-3">
-                <ShieldAlert size={18} className="mt-0.5 shrink-0" />
+                <AlertCircle size={18} className="mt-0.5 shrink-0" />
                 <div>
                     <h4 className="font-bold mb-1">Nota de Segurança</h4>
-                    <p>Esta auditoria é gerada automaticamente pelo banco de dados. Ações realizadas diretamente via SQL ou manutenção de sistema também são registradas aqui para integridade total.</p>
+                    <p>Esta auditoria é gerada automaticamente pelo banco de dados. Clique em qualquer linha para ver o detalhamento completo das alterações (Valores Antigos vs Novos).</p>
                 </div>
             </div>
+
+            {/* Modal de Detalhes */}
+            <AuditDetailsModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                log={selectedLog}
+            />
         </div>
     );
 }

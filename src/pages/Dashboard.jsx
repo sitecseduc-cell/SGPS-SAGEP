@@ -108,7 +108,7 @@ export default function Dashboard() {
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-blue-700 to-indigo-800 rounded-2xl p-8 text-white shadow-lg relative overflow-hidden">
         <div className="relative z-10">
-          <h1 className="text-3xl font-bold mb-2">Bem-vindo ao SAGEP</h1>
+          <h1 className="text-3xl font-bold mb-2">Bem-vindo à SAGEP</h1>
           <p className="text-blue-100 max-w-2xl text-lg">
             Seu painel de controle central para gestão de processos seletivos públicos.
             Acompanhe indicadores em tempo real e inicie novas ações.
