@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { supabase } from '../lib/supabaseClient';
 import logoSistema from '../assets/brassao.svg';
 import AiChatbot from './AiChatbot';
 import InternalChat from './InternalChat';
+import AuditDetailsModal from './AuditDetailsModal'; // Import the new modal
 
 import {
   LayoutDashboard, Users, Layers, Bell, LogOut, Search,
   FileText, Map, AlertTriangle, FileSpreadsheet, Shield, BookOpen, CheckCircle,
-  KanbanSquare, Briefcase, ShieldAlert, Star, X, Sun, Moon
+  KanbanSquare, Briefcase, ShieldAlert, Star, X, Sun, Moon, MessageCircle
 } from 'lucide-react';
 
 // --- COMPONENTES AUXILIARES ---
@@ -49,9 +51,76 @@ export default function Layout() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const [showNotifications, setShowNotifications] = useState(false); // Estado notificações
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // States for Audit Modal within Notifications
+  const [selectedLog, setSelectedLog] = useState(null);
+  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
 
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuário';
+
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+      // Optional: Subscribe to realtime, but fetching on mount/open is good for now
+    }
+  }, [user, showNotifications]);
+
+  const fetchNotifications = async () => {
+    try {
+      // 1. Fetch recent Audit Logs (Last 5)
+      const { data: auditData } = await supabase
+        .from('audit_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      // 2. Fetch recent Messages (Last 5) - Ideally unread, but for now recent global/direct
+      // We want messages where I am receiver OR global messages that are not from me
+      let { data: chatData } = await supabase
+        .from('chat_messages')
+        .select(`
+            id, content, created_at, sender_id, receiver_id,
+            profiles:sender_id (full_name)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (!auditData) auditData = [];
+      if (!chatData) chatData = [];
+
+      // Process and normalize
+      const formattedAudit = (auditData || []).map(log => ({
+        id: `audit-${log.id}`,
+        type: 'audit',
+        text: `${log.operation} em ${log.table_name}`,
+        subtext: 'Auditoria do Sistema',
+        time: new Date(log.created_at),
+        data: log,
+        unread: false // Audit logs are informative
+      }));
+
+      const formattedChat = (chatData || []).map(msg => ({
+        id: `chat-${msg.id}`,
+        type: 'chat',
+        text: msg.profiles?.full_name ? `Mensagem de ${msg.profiles.full_name}` : 'Nova mensagem',
+        subtext: msg.content,
+        time: new Date(msg.created_at),
+        data: msg,
+        unread: true // Assume recent chats are "fresh" for list
+      }));
+
+      // Combine and Sort
+      const combined = [...formattedAudit, ...formattedChat].sort((a, b) => b.time - a.time).slice(0, 8);
+      setNotifications(combined);
+      setUnreadCount(formattedChat.length); // Simple unread count based on chat msgs fetched
+
+    } catch (error) {
+      console.error("Error fetching notifications", error);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -62,12 +131,30 @@ export default function Layout() {
     }
   };
 
-  // Notificações Mockadas
-  const notifications = [
-    { id: 1, text: "Novo candidato inscrito em PSS 08/2025", time: "Há 10 min", unread: true },
-    { id: 2, text: "Processo de Auditoria finalizado", time: "Há 2 horas", unread: false },
-    { id: 3, text: "Backup do sistema realizado", time: "Ontem", unread: false },
-  ];
+  const handleNotificationClick = (notif) => {
+    if (notif.type === 'audit') {
+      setSelectedLog(notif.data);
+      setIsAuditModalOpen(true);
+      setShowNotifications(false);
+    } else if (notif.type === 'chat') {
+      // Dispatch event to open chat
+      const event = new CustomEvent('open-internal-chat', {
+        detail: { userId: notif.data.sender_id }
+      });
+      window.dispatchEvent(event);
+      setShowNotifications(false);
+    }
+  };
+
+  // Helper time format
+  const formatTimeAgo = (date) => {
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+    if (diffInSeconds < 60) return 'Agora';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} min atrás`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} h atrás`;
+    return `${Math.floor(diffInSeconds / 86400)} d atrás`;
+  };
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-900 font-sans overflow-hidden transition-colors duration-300">
@@ -151,28 +238,48 @@ export default function Layout() {
                 className="p-2 text-slate-400 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 relative transition-colors rounded-full hover:bg-slate-50 dark:hover:bg-slate-700"
               >
                 <Bell size={20} />
-                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-slate-800"></span>
+                {unreadCount > 0 && (
+                  <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-slate-800"></span>
+                )}
               </button>
 
               {/* Dropdown de Notificações */}
               {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden z-50 animate-fadeIn">
+                <div className="absolute right-0 mt-2 w-96 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden z-50 animate-fadeIn origin-top-right">
                   <div className="px-4 py-3 border-b border-slate-50 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
-                    <span className="font-bold text-sm text-slate-700 dark:text-slate-200">Notificações</span>
+                    <span className="font-bold text-sm text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                      <Bell size={14} className="text-blue-500" /> Notificações Recentes
+                    </span>
                     <button onClick={() => setShowNotifications(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
                       <X size={16} />
                     </button>
                   </div>
-                  <div className="max-h-64 overflow-y-auto custom-scrollbar">
-                    {notifications.map(n => (
-                      <div key={n.id} className={`px-4 py-3 border-b border-slate-50 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer ${n.unread ? 'bg-blue-50/40 dark:bg-blue-900/10' : ''}`}>
-                        <div className="flex justify-between items-start">
-                          <p className="text-sm text-slate-700 dark:text-slate-300 font-medium leading-snug">{n.text}</p>
-                          {n.unread && <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1.5 flex-shrink-0 ml-2"></span>}
+                  <div className="max-h-80 overflow-y-auto custom-scrollbar">
+                    {notifications.length === 0 ? (
+                      <div className="py-8 text-center text-slate-400 text-xs">Nenhuma notificação recente.</div>
+                    ) : (
+                      notifications.map(n => (
+                        <div
+                          key={n.id}
+                          onClick={() => handleNotificationClick(n)}
+                          className={`px-4 py-3 border-b border-slate-50 dark:border-slate-700 hover:bg-blue-50/50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer group flex gap-3`}
+                        >
+                          <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${n.type === 'audit' ? 'bg-orange-400' : 'bg-blue-500'}`}></div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-start">
+                              <p className="text-sm text-slate-700 dark:text-slate-300 font-bold leading-snug group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
+                                {n.text}
+                              </p>
+                              <span className="text-[10px] text-slate-400 whitespace-nowrap ml-2">{formatTimeAgo(n.time)}</span>
+                            </div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate flex items-center gap-1">
+                              {n.type === 'audit' ? <ShieldAlert size={10} /> : <MessageCircle size={10} />}
+                              {n.subtext}
+                            </p>
+                          </div>
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-bold">{n.time}</p>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                   <div className="p-2 text-center bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700/50 cursor-pointer text-xs font-bold text-blue-600 dark:text-blue-400 transition-colors border-t border-slate-100 dark:border-slate-700">
                     Ver todas as atividades
@@ -183,14 +290,22 @@ export default function Layout() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50 dark:bg-slate-900">
+        <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50 dark:bg-slate-900 custom-scrollbar">
           <Outlet />
         </div>
       </main>
+
       <div id="chatbot-trigger">
         <InternalChat />
         <AiChatbot />
       </div>
+
+      {/* Modal de Detalhes de Auditoria (Global para Notificações) */}
+      <AuditDetailsModal
+        isOpen={isAuditModalOpen}
+        onClose={() => setIsAuditModalOpen(false)}
+        log={selectedLog}
+      />
     </div>
   );
 }
