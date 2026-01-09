@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit, FileText, Calendar, Layers, Trash2, Sparkles, Upload } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import NewProcessModal from '../components/NewProcessModal';
+import TableSkeleton from '../components/TableSkeleton';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -11,78 +12,25 @@ import { GeminiService } from '../services/GeminiService';
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 export default function Processos() {
-  const [processos, setProcessos] = useState([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingProcess, setEditingProcess] = useState(null); // Estado para saber quem estamos editando
-  const [analyzing, setAnalyzing] = useState(false);
-  const navigate = useNavigate();
-  const fileInputRef = React.useRef(null);
+  // ... inside Processos component
+  const [loading, setLoading] = useState(true); // Add loading state
+  // ...
 
-  useEffect(() => {
-    fetchProcessos();
-  }, []);
-
-  // --- FUNÇÕES DE NPL / IA ---
-  const handleanalyzeClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    if (file.type !== 'application/pdf') {
-      toast.error('Por favor, envie um arquivo PDF.');
-      return;
-    }
-
-    try {
-      setAnalyzing(true);
-      toast.info('Lendo Edital e extraindo informações...');
-
-      // 1. Extrair texto do PDF
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      let fullText = '';
-
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        fullText += textContent.items.map(item => item.str).join(' ');
-      }
-
-      // 2. Enviar para Gemini
-      toast.info('Analisando com IA (Gemini)...');
-      const aiData = await GeminiService.analyzeEdital(fullText);
-
-      // 3. Abrir Modal com dados preenchidos
-      setEditingProcess({
-        nome: aiData.nome || '',
-        descricao: aiData.descricao || '',
-        inicio: aiData.inicio || '',
-        fim: aiData.fim || '',
-        isAiGenerated: true // Flag opcional para indicar origem
-      });
-      setIsModalOpen(true);
-      toast.success('Edital analisado! Verifique os dados.');
-
-    } catch (error) {
-      console.error('Erro na análise:', error);
-      toast.error('Falha ao analisar o edital. ' + error.message);
-    } finally {
-      setAnalyzing(false);
-      // Limpa input para permitir selecionar o mesmo arquivo novamente se quiser
-      event.target.value = '';
-    }
-  };
-
+  // Update fetchProcessos
   const fetchProcessos = async () => {
+    setLoading(true);
     const { data, error } = await supabase
       .from('processos')
       .select('*')
       .order('created_at', { ascending: false });
-    if (error) console.error('Erro ao buscar processos:', error);
-    else if (data) setProcessos(data);
+
+    if (error) {
+      console.error('Erro ao buscar processos:', error);
+      toast.error('Erro ao carregar processos');
+    } else if (data) {
+      setProcessos(data);
+    }
+    setLoading(false);
   };
 
   // Abre modal para CRIAR
@@ -205,78 +153,82 @@ export default function Processos() {
         </div>
       </div>
       {/* Tabela */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase w-1/3">Nome do Processo</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Período</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Fase Atual</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-center">Progresso</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {processos.length === 0 && (
-                <tr><td colSpan="5" className="p-6 text-center text-slate-400">Nenhum processo cadastrado.</td></tr>
-              )}
-              {processos.map((proc) => (
-                <tr key={proc.id} className="hover:bg-slate-50 transition-colors group">
-                  <td className="px-6 py-5">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-100 transition-colors">
-                        <FileText size={18} />
-                      </div>
-                      <span className="font-semibold text-slate-700 text-sm">{proc.nome}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-5 text-sm text-slate-600 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <Calendar size={16} className="mr-2 text-slate-400" />
-                      {formatDate(proc.inicio)} - {formatDate(proc.fim)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-5 text-sm font-bold text-blue-600">{proc.fase_atual || 'Planejamento'}</td>
-                  <td className="px-6 py-5 align-middle">
-                    <div className="w-full max-w-[100px] mx-auto bg-slate-100 rounded-full h-2">
-                      <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${proc.progresso || 0}%` }}></div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-5 text-right">
-                    <div className="flex justify-end space-x-2">
-                      <button
-                        onClick={() => navigate('/workflow', { state: { processId: proc.id, processName: proc.nome } })}
-                        className="p-2 text-slate-400 hover:text-blue-600 rounded-lg transition-colors"
-                        title="Editar Fases (Kanban)"
-                      >
-                        <Layers size={18} />
-                      </button>
-
-                      {/* Botão de Editar Ativado */}
-                      <button
-                        onClick={() => handleOpenEdit(proc)}
-                        className="p-2 text-slate-400 hover:text-amber-600 rounded-lg transition-colors"
-                        title="Editar"
-                      >
-                        <Edit size={18} />
-                      </button>
-
-                      <button
-                        onClick={() => handleDelete(proc.id)}
-                        className="p-2 text-slate-400 hover:text-red-600 rounded-lg transition-colors"
-                        title="Excluir"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </td>
+      {loading ? (
+        <TableSkeleton rows={5} cols={5} />
+      ) : (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase w-1/3">Nome do Processo</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Período</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Fase Atual</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-center">Progresso</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Ações</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {processos.length === 0 && (
+                  <tr><td colSpan="5" className="p-6 text-center text-slate-400">Nenhum processo cadastrado.</td></tr>
+                )}
+                {processos.map((proc) => (
+                  <tr key={proc.id} className="hover:bg-slate-50 transition-colors group">
+                    <td className="px-6 py-5">
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-100 transition-colors">
+                          <FileText size={18} />
+                        </div>
+                        <span className="font-semibold text-slate-700 text-sm">{proc.nome}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 text-sm text-slate-600 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <Calendar size={16} className="mr-2 text-slate-400" />
+                        {formatDate(proc.inicio)} - {formatDate(proc.fim)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 text-sm font-bold text-blue-600">{proc.fase_atual || 'Planejamento'}</td>
+                    <td className="px-6 py-5 align-middle">
+                      <div className="w-full max-w-[100px] mx-auto bg-slate-100 rounded-full h-2">
+                        <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${proc.progresso || 0}%` }}></div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 text-right">
+                      <div className="flex justify-end space-x-2">
+                        <button
+                          onClick={() => navigate('/workflow', { state: { processId: proc.id, processName: proc.nome } })}
+                          className="p-2 text-slate-400 hover:text-blue-600 rounded-lg transition-colors"
+                          title="Editar Fases (Kanban)"
+                        >
+                          <Layers size={18} />
+                        </button>
+
+                        {/* Botão de Editar Ativado */}
+                        <button
+                          onClick={() => handleOpenEdit(proc)}
+                          className="p-2 text-slate-400 hover:text-amber-600 rounded-lg transition-colors"
+                          title="Editar"
+                        >
+                          <Edit size={18} />
+                        </button>
+
+                        <button
+                          onClick={() => handleDelete(proc.id)}
+                          className="p-2 text-slate-400 hover:text-red-600 rounded-lg transition-colors"
+                          title="Excluir"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       <NewProcessModal
         isOpen={isModalOpen}

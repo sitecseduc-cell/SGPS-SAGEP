@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { toast } from 'sonner';
 import {
-    Shield, Lock, Key, UserCheck, Smartphone,
+    Shield, Lock, Key, Smartphone,
     AlertTriangle, Server, CheckCircle, LogIn
 } from 'lucide-react';
 
@@ -54,25 +54,7 @@ export default function Seguranca() {
                 {/* Coluna 1: Perfil e Senha */}
                 <div className="lg:col-span-2 space-y-8">
 
-                    {/* Card de Perfil */}
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                        <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-                            <UserCheck size={20} className="text-blue-600" /> Suas Informações
-                        </h3>
-                        <div className="flex items-start gap-4">
-                            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 font-bold text-2xl">
-                                {user?.email?.[0].toUpperCase()}
-                            </div>
-                            <div className="flex-1 space-y-1">
-                                <p className="text-sm font-bold text-slate-500 uppercase">Email Vinculado</p>
-                                <p className="text-slate-800 font-medium">{user?.email}</p>
-                                <div className="pt-2 flex gap-2">
-                                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-md">Autenticado</span>
-                                    <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-md">Função: Admin</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+
 
                     {/* Card de Alterar Senha */}
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
@@ -88,6 +70,7 @@ export default function Seguranca() {
                                     value={passwordData.newPassword}
                                     onChange={e => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                                     placeholder="••••••••"
+                                    autoComplete="new-password"
                                 />
                             </div>
                             <div>
@@ -98,6 +81,7 @@ export default function Seguranca() {
                                     value={passwordData.confirmPassword}
                                     onChange={e => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                                     placeholder="••••••••"
+                                    autoComplete="new-password"
                                 />
                             </div>
                             <div className="pt-2">

@@ -11,7 +11,7 @@ import AuditDetailsModal from './AuditDetailsModal'; // Import the new modal
 import {
   LayoutDashboard, Users, Layers, Bell, LogOut, Search,
   FileText, Map, AlertTriangle, FileSpreadsheet, Shield, BookOpen, CheckCircle,
-  KanbanSquare, Briefcase, ShieldAlert, Star, X, Sun, Moon, MessageCircle
+  KanbanSquare, Briefcase, ShieldAlert, Star, X, Sun, Moon, MessageCircle, Lock
 } from 'lucide-react';
 
 // --- COMPONENTES AUXILIARES ---
@@ -49,7 +49,7 @@ const SidebarGroup = ({ title, children }) => (
 
 export default function Layout() {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, signOut, isAdmin, role } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -71,7 +71,7 @@ export default function Layout() {
   const fetchNotifications = async () => {
     try {
       // 1. Fetch recent Audit Logs (Last 5)
-      const { data: auditData } = await supabase
+      let { data: auditData } = await supabase
         .from('audit_logs')
         .select('*')
         .order('created_at', { ascending: false })
@@ -195,6 +195,7 @@ export default function Layout() {
             <SidebarItem icon={ShieldAlert} label="Auditoria & Controle" to="/auditoria" />
             <SidebarItem icon={FileSpreadsheet} label="Relatórios Gerenciais" to="/relatorios" />
             <SidebarItem icon={Shield} label="Segurança do Sistema" to="/seguranca" />
+            <SidebarItem icon={Lock} label="Gestão de Acesso" to="/admin/perfis" />
           </SidebarGroup>
         </nav>
 
@@ -220,6 +221,9 @@ export default function Layout() {
             <div className="flex items-center text-sm text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700/50 px-4 py-2 rounded-full border border-slate-200 dark:border-slate-700">
               <span className="mr-2 hidden sm:inline">Bem-vindo,</span>
               <strong className="text-slate-800 dark:text-white uppercase">{userName}</strong>
+              <span className="ml-2 text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200 uppercase font-bold tracking-wider">
+                {role || '...'}
+              </span>
             </div>
 
             {/* TEMA (DARK MODE) */}

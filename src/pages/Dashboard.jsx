@@ -1,51 +1,21 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
+import { supabase } from '../lib/supabaseClient';
 import {
-  Users, GitCommit, AlertTriangle, CheckCircle,
-  Map, BarChart3, Plus, ArrowRight, BookOpen
+  Users,
+  GitCommit,
+  CheckCircle,
+  AlertTriangle,
+  Plus,
+  ArrowRight,
+  BookOpen,
+  Map
 } from 'lucide-react';
 import StatCard from '../components/StatCard';
-import { CardSkeleton, Skeleton } from '../components/ui/Loading';
-import { supabase } from '../lib/supabaseClient';
-import { Link } from 'react-router-dom';
+import FunnelChart from '../components/FunnelChart';
+import CardSkeleton from '../components/CardSkeleton';
 import OnboardingTour from '../components/OnboardingTour';
-
-const FunnelChart = ({ loading, data }) => {
-  // ... (keep FunnelChart logic same as before, simplified below for brevity if needed but I will keep it full)
-  // Valores padrão apenas para não quebrar se vier vazio
-  const funnelSteps = data || [
-    { label: 'Inscritos', count: 0, color: 'bg-blue-600' },
-    { label: 'Em Análise', count: 0, color: 'bg-blue-500' },
-    { label: 'Classificados', count: 0, color: 'bg-indigo-500' },
-    { label: 'Convocados', count: 0, color: 'bg-emerald-500' }
-  ];
-
-  const maxVal = funnelSteps[0]?.count || 1;
-
-  return (
-    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 h-full transition-colors duration-300">
-      <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center"><BarChart3 size={18} className="mr-2 text-slate-500 dark:text-slate-400" /> Funil de Seleção Hoje</h3>
-      <div className="space-y-4">
-        {loading
-          ? Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-8 w-full rounded-full" />)
-          : funnelSteps.map((step, idx) => {
-            const percent = Math.round((step.count / maxVal) * 100) || 0;
-            return (
-              <div key={idx} className="relative group cursor-default">
-                <div className="flex justify-between text-xs mb-1.5 font-semibold text-slate-600 dark:text-slate-300">
-                  <span>{step.label}</span>
-                  <span>{step.count.toLocaleString()} ({percent}%)</span>
-                </div>
-                <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-3 overflow-hidden">
-                  <div className={`h-full ${step.color} rounded-full transition-all duration-1000 group-hover:opacity-80`} style={{ width: `${percent}%` }}></div>
-                </div>
-              </div>
-            )
-          })
-        }
-      </div>
-    </div>
-  );
-};
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
@@ -58,6 +28,34 @@ export default function Dashboard() {
   const [funnelData, setFunnelData] = useState([]);
 
   useEffect(() => {
+    // --- DB DIAGNOSTIC CHECK ---
+    const checkDbHealth = async () => {
+      try {
+        console.log("Checking DB health...");
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return; // Not logged in
+
+        const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+
+        if (error) {
+          console.error("DB Check Failed:", error);
+          toast.error(`Erro de Banco de Dados: ${error.message || error.code || 'Desconhecido'}. (Tabela profiles faltando ou RLS bloqueando)`);
+        } else if (data) {
+          console.log("DB Check Success:", data);
+          if (data.role === 'admin') {
+            toast.success(`Sistema Conectado. Perfil: ADMIN`);
+          } else {
+            toast.info(`Sistema Conectado. Perfil: ${data.role || 'Sem cargo'}`);
+          }
+        } else {
+          toast.warning("Usuário sem perfil na tabela 'profiles'. Rode o SQL de correção.");
+        }
+      } catch (err) {
+        console.error("Health check crash:", err);
+      }
+    };
+    checkDbHealth();
+
     const fetchDashboardData = async () => {
       try {
         setLoading(true);

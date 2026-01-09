@@ -25,47 +25,59 @@ import VagasEspeciais from './pages/VagasEspeciais';
 import Planejamento from './pages/Planejamento';
 import Lotacao from './pages/Lotacao';
 import UpdatePassword from './pages/UpdatePassword';
+import AdminPerfis from './pages/AdminPerfis';
+
+import TryBoundary from './components/TryBoundary';
+import NetworkStatus from './components/NetworkStatus';
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Routes>
+    <TryBoundary>
+      <NetworkStatus />
+      <BrowserRouter>
+        <AuthProvider>
+          <Routes>
 
-          <Route path="/login" element={<Login />} />
-          <Route path="/update-password" element={<UpdatePassword />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/update-password" element={<UpdatePassword />} />
 
-          <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<Layout />}>
-              <Route index element={<Dashboard />} />
-              <Route path="planejamento" element={<Planejamento />} />
-              <Route path="processos" element={<Processos />} />
-              <Route path="lotacao" element={<Lotacao />} />
-              <Route path="vagas" element={<ControleVagas />} />
-              <Route path="inscritos" element={<Inscritos />} />
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<Dashboard />} />
+                <Route path="planejamento" element={<Planejamento />} />
+                <Route path="processos" element={<Processos />} />
+                <Route path="lotacao" element={<Lotacao />} />
+                <Route path="vagas" element={<ControleVagas />} />
+                <Route path="inscritos" element={<Inscritos />} />
 
-              {/* --- NOVA ROTA DE VAGAS ESPECIAIS --- */}
-              <Route path="vagas-especiais" element={<VagasEspeciais />} />
-              {/* ------------------------------------ */}
+                {/* --- NOVA ROTA DE VAGAS ESPECIAIS --- */}
+                <Route path="vagas-especiais" element={<VagasEspeciais />} />
 
-              <Route path="pesquisa" element={<PesquisaCandidatos />} />
-              <Route path="qtd" element={<QuantidadeInscritos />} />
-              <Route path="pre" element={<PreAvaliacao />} />
+                <Route path="admin/perfis" element={<AdminPerfis />} />
+                <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+                  {/* <Route path="admin/perfis" element={<AdminPerfis />} /> */}
+                </Route>
+                {/* ------------------------------------ */}
 
-              <Route path="workflow" element={<Kanban />} />
-              <Route path="auditoria" element={<Auditoria />} />
-              <Route path="relatorios" element={<Relatorios />} />
-              <Route path="seguranca" element={<Seguranca />} />
+                <Route path="pesquisa" element={<PesquisaCandidatos />} />
+                <Route path="qtd" element={<QuantidadeInscritos />} />
+                <Route path="pre" element={<PreAvaliacao />} />
 
-              <Route path="*" element={<EmConstrucao titulo="Página em Desenvolvimento" />} />
+                <Route path="workflow" element={<Kanban />} />
+                <Route path="auditoria" element={<Auditoria />} />
+                <Route path="relatorios" element={<Relatorios />} />
+                <Route path="seguranca" element={<Seguranca />} />
+
+                <Route path="*" element={<EmConstrucao titulo="Página em Desenvolvimento" />} />
+              </Route>
             </Route>
-          </Route>
 
-          <Route path="*" element={<Navigate to="/login" replace />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
 
-        </Routes>
-        <Toaster richColors position="top-right" />
-      </AuthProvider>
-    </BrowserRouter>
+          </Routes>
+          <Toaster richColors position="top-right" />
+        </AuthProvider>
+      </BrowserRouter>
+    </TryBoundary>
   );
 }

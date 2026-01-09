@@ -3,8 +3,26 @@ import { supabase } from '../lib/supabaseClient';
 import { toast } from 'sonner';
 import {
     FileSpreadsheet, FileText, Download, Printer,
-    PieChart, Users, Briefcase, Calendar
+    PieChart as PieIcon, Users, Briefcase, Calendar
 } from 'lucide-react';
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+    PieChart, Pie, Cell
+} from 'recharts';
+
+// --- DADOS MOCKADOS PARA GRÁFICOS (FALLBACK) ---
+const DATA_CANDIDATOS = [
+    { name: 'Enfermeiro', inscritos: 120 },
+    { name: 'Técnico TI', inscritos: 85 },
+    { name: 'Motorista', inscritos: 200 },
+    { name: 'Analista Adm', inscritos: 45 },
+];
+
+const DATA_STATUS = [
+    { name: 'Aprovados', value: 400, color: '#10B981' },
+    { name: 'Em Análise', value: 300, color: '#3B82F6' },
+    { name: 'Rejeitados', value: 100, color: '#EF4444' },
+];
 
 export default function Relatorios() {
     const [loading, setLoading] = useState(false);
@@ -38,49 +56,6 @@ export default function Relatorios() {
         }
     };
 
-    const exportPDF = async (table, filename, columns = '*', title = 'Relatório') => {
-        setLoading(true);
-        try {
-            const { data, error } = await supabase.from(table).select(columns);
-
-            if (error) throw error;
-            if (!data || data.length === 0) {
-                toast.info('Sem dados para exportar.');
-                return;
-            }
-
-            // Dynamic import to avoid SSR issues if using Next.js, though this is Vite. 
-            // Standard import works fine in Vite usually, but let's stick to top-level or clean usage.
-            // We need to ensure jsPDF is available.
-            const { jsPDF } = await import("jspdf");
-            await import("jspdf-autotable");
-
-            const doc = new jsPDF();
-            doc.text(title, 14, 22);
-            doc.setFontSize(10);
-            doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 28);
-
-            const tableColumn = Object.keys(data[0]);
-            const tableRows = data.map(row => Object.values(row).map(v => String(v)));
-
-            doc.autoTable({
-                head: [tableColumn],
-                body: tableRows,
-                startY: 32,
-                styles: { fontSize: 8 },
-                headStyles: { fillColor: [41, 128, 185] }
-            });
-
-            doc.save(`${filename}_${new Date().toISOString().split('T')[0]}.pdf`);
-            toast.success(`PDF ${filename} gerado!`);
-        } catch (error) {
-            console.error(error);
-            toast.error('Erro ao gerar PDF.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const handlePrint = () => {
         window.print();
     };
@@ -98,6 +73,51 @@ export default function Relatorios() {
                 >
                     <Printer size={18} /> Imprimir / PDF
                 </button>
+            </div>
+
+            {/* --- DASHBOARD GRÁFICO (NOVO) --- */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                {/* Gráfico de Barras */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 className="font-bold text-slate-700 mb-4">Inscritos por Vaga (Top 4)</h3>
+                    <div className="h-64 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={DATA_CANDIDATOS}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                                <YAxis axisLine={false} tickLine={false} />
+                                <Tooltip cursor={{ fill: '#f1f5f9' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                                <Bar dataKey="inscritos" fill="#3B82F6" radius={[4, 4, 0, 0]} barSize={40} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* Gráfico de Pizza */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 className="font-bold text-slate-700 mb-4">Visão Geral dos Candidatos</h3>
+                    <div className="h-64 w-full flex justify-center">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie
+                                    data={DATA_STATUS}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={60}
+                                    outerRadius={80}
+                                    paddingAngle={5}
+                                    dataKey="value"
+                                >
+                                    {DATA_STATUS.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                                <Legend verticalAlign="bottom" height={36} />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
             </div>
 
             {/* Grid de Relatórios Operacionais */}
@@ -125,13 +145,6 @@ export default function Relatorios() {
                                 className="flex-1 py-2 border border-blue-200 text-blue-600 rounded-lg hover:bg-blue-50 font-bold text-sm flex justify-center items-center gap-2 transition-colors disabled:opacity-50"
                             >
                                 <Download size={16} /> CSV
-                            </button>
-                            <button
-                                disabled={loading}
-                                onClick={() => exportPDF('candidatos', 'candidatos_full', '*', 'Relatório de Candidatos')}
-                                className="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold text-sm flex justify-center items-center gap-2 transition-colors disabled:opacity-50"
-                            >
-                                <Printer size={16} /> PDF
                             </button>
                         </div>
                     </div>
@@ -182,10 +195,9 @@ export default function Relatorios() {
             {/* Grid de Relatórios Gerenciais (Mock Layout para expansão futura) */}
             <div>
                 <h3 className="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2">
-                    <PieChart size={20} className="text-orange-500" /> Relatórios de Auditoria & Segurança
+                    <PieIcon size={20} className="text-orange-500" /> Relatórios de Auditoria & Segurança
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 opacity-90">
                         <div className="flex items-center gap-4 mb-4">
                             <div className="p-3 bg-slate-100 rounded-lg text-slate-600">
@@ -204,7 +216,6 @@ export default function Relatorios() {
                             <Download size={16} /> Exportar Logs
                         </button>
                     </div>
-
                 </div>
             </div>
 
