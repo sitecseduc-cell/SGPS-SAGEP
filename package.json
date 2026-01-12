@@ -18,7 +18,7 @@
     "date-fns": "^4.1.0",
     "driver.js": "^1.4.0",
     "jspdf": "^3.0.4",
-    "jspdf-autotable": "^5.0.2",
+    "jspdf-autotable": "^5.0.7",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.559.0",
     "papaparse": "^5.5.3",

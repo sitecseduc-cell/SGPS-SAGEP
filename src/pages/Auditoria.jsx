@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ShieldAlert, Search, Database, Clock, ArrowRight, User, FileText, Download, Eye, X, ChevronRight, AlertCircle } from 'lucide-react';
 import { TableSkeleton } from '../components/ui/Loading';
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { toast } from 'sonner';
 

@@ -71,7 +71,7 @@ export default function Layout() {
   const fetchNotifications = async () => {
     try {
       // 1. Fetch recent Audit Logs (Last 5)
-      const { data: auditData } = await supabase
+      let { data: auditData } = await supabase
         .from('audit_logs')
         .select('*')
         .order('created_at', { ascending: false })

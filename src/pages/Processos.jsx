@@ -1,20 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, FileText, Calendar, Layers, Trash2, Sparkles, Upload } from 'lucide-react';
+import { Plus, Edit, FileText, Calendar, Layers, Trash2, Sparkles, Upload, Loader } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import NewProcessModal from '../components/NewProcessModal';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import * as pdfjsLib from 'pdfjs-dist';
 import { GeminiService } from '../services/GeminiService';
+import { uploadFile } from '../services/storageService';
+import { logAction } from '../services/auditService';
 
 // Configurar worker do PDF.js (necessário para vite)
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Usando versão fixa ou compatível se a variável falhar
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
 
 export default function Processos() {
   const [processos, setProcessos] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProcess, setEditingProcess] = useState(null); // Estado para saber quem estamos editando
   const [analyzing, setAnalyzing] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadedUrl, setUploadedUrl] = useState('');
+  const [editalTexto, setEditalTexto] = useState('');
   const navigate = useNavigate();
   const fileInputRef = React.useRef(null);
 
@@ -51,11 +57,19 @@ export default function Processos() {
         fullText += textContent.items.map(item => item.str).join(' ');
       }
 
+      setEditalTexto(fullText); // Salva para enviar ao banco
+
       // 2. Enviar para Gemini
       toast.info('Analisando com IA (Gemini)...');
       const aiData = await GeminiService.analyzeEdital(fullText);
 
-      // 3. Abrir Modal com dados preenchidos
+      // 3. Upload Real para Supabase
+      setUploading(true);
+      const uploadResult = await uploadFile(file);
+      setUploadedUrl(uploadResult.url);
+      setUploading(false);
+
+      // 4. Abrir Modal com dados preenchidos
       setEditingProcess({
         nome: aiData.nome || '',
         descricao: aiData.descricao || '',
@@ -71,6 +85,7 @@ export default function Processos() {
       toast.error('Falha ao analisar o edital. ' + error.message);
     } finally {
       setAnalyzing(false);
+      setUploading(false);
       // Limpa input para permitir selecionar o mesmo arquivo novamente se quiser
       event.target.value = '';
     }
@@ -88,12 +103,16 @@ export default function Processos() {
   // Abre modal para CRIAR
   const handleOpenCreate = () => {
     setEditingProcess(null);
+    setUploadedUrl(''); // Limpa URL anterior
+    setEditalTexto('');
     setIsModalOpen(true);
   };
 
   // Abre modal para EDITAR
   const handleOpenEdit = (proc) => {
     setEditingProcess(proc);
+    setUploadedUrl(proc.edital_url || '');
+    setEditalTexto(proc.edital_texto || '');
     setIsModalOpen(true);
   };
 
@@ -108,6 +127,9 @@ export default function Processos() {
           inicio: formData.inicio,
           fim: formData.fim,
           descricao: formData.descricao,
+          descricao: formData.descricao,
+          edital_url: uploadedUrl || editingProcess.edital_url, // Mantém anterior se não mudou
+          edital_texto: editalTexto || editingProcess.edital_texto
         })
         .eq('id', editingProcess.id)
         .select();
@@ -119,6 +141,7 @@ export default function Processos() {
         // Atualiza a lista localmente
         setProcessos(processos.map(p => p.id === editingProcess.id ? data[0] : p));
         setIsModalOpen(false);
+        handleLogAction('UPDATE', 'processos', `Atualizou processo: ${formData.nome}`, editingProcess, data[0]);
         toast.success('Processo atualizado com sucesso!');
       }
 
@@ -129,7 +152,10 @@ export default function Processos() {
         nome: formData.nome,
         descricao: formData.descricao,
         fase_atual: 'Planejamento', // Valor padrão
-        progresso: 0
+        fase_atual: 'Planejamento', // Valor padrão
+        progresso: 0,
+        edital_url: uploadedUrl || null,
+        edital_texto: editalTexto || null
       };
 
       // Adiciona ao payload apenas se existir valor, evitando erro de formato inválido no banco
@@ -147,6 +173,7 @@ export default function Processos() {
       } else if (data && data.length > 0) {
         setProcessos([data[0], ...processos]);
         setIsModalOpen(false);
+        handleLogAction('INSERT', 'processos', `Criou processo: ${formData.nome}`, null, data[0]);
         toast.success('Processo criado com sucesso!');
       }
     }
@@ -159,7 +186,9 @@ export default function Processos() {
         console.error('Erro ao excluir:', error);
         toast.error('Erro ao excluir.');
       } else {
+        const deletedProc = processos.find(p => p.id === id);
         setProcessos(processos.filter(p => p.id !== id));
+        handleLogAction('DELETE', 'processos', `Excluiu processo ID: ${id}`, deletedProc, null);
         toast.success('Processo excluído.');
       }
     }
@@ -170,6 +199,10 @@ export default function Processos() {
     if (!dateString) return '-';
     const [year, month, day] = dateString.split('-');
     return `${day}/${month}/${year}`;
+  };
+
+  const handleLogAction = (op, table, details, oldD, newD) => {
+    logAction(op, table, details, oldD, newD);
   };
 
   return (
@@ -193,8 +226,8 @@ export default function Processos() {
             disabled={analyzing}
             className="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 rounded-xl font-bold shadow-lg shadow-emerald-500/20 transition-all hover:scale-105 active:scale-95 disabled:opacity-70 disabled:cursor-wait"
           >
-            {analyzing ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <Sparkles size={20} />}
-            <span>{analyzing ? 'Analisando...' : 'Analisar Edital (IA)'}</span>
+            {analyzing || uploading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <Sparkles size={20} />}
+            <span>{analyzing ? 'Analisando...' : uploading ? 'Enviando...' : 'Analisar Edital (IA)'}</span>
           </button>
           <button
             onClick={handleOpenCreate}

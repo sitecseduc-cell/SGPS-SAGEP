@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import {
   Search, ChevronRight, Mail, Phone, Save, Edit,
   User, MapPin, FileText, Clock, FileCheck, Eye,
-  Shield, CheckCircle, X, AlertTriangle, Loader, Plus
+  Shield, CheckCircle, X, AlertTriangle, Loader, Plus, Trash2
 } from 'lucide-react';
 import CandidateTable from '../components/CandidateTable';
 import NewCandidateModal from '../components/NewCandidateModal';
 import { TableSkeleton, Spinner } from '../components/ui/Loading';
 import { supabase } from '../lib/supabaseClient';
 import { toast } from 'sonner';
+import { logAction } from '../services/auditService';
 
 function useDebounce(value, delay) {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -126,12 +127,46 @@ export default function Inscritos() {
     });
   };
 
-  const handleStatusChange = (newStatus) => {
+  const handleStatusChange = async (newStatus) => {
     if (window.confirm(`Mudar status para: ${newStatus}?`)) {
-      const updated = { ...selectedCandidate, status: newStatus };
-      setSelectedCandidate(updated);
-      setAllCandidates(prev => prev.map(c => c.id === updated.id ? updated : c));
-      toast.success(`Status alterado para ${newStatus}`);
+      try {
+        const { data, error } = await supabase
+          .from('candidatos')
+          .update({ status: newStatus })
+          .eq('id', selectedCandidate.id)
+          .select();
+
+        if (error) throw error;
+
+        const updated = data[0];
+        // Log Audit
+        logAction('UPDATE', 'candidatos', `Alterou status para ${newStatus}`, selectedCandidate, updated);
+
+        setSelectedCandidate(updated);
+        setAllCandidates(prev => prev.map(c => c.id === updated.id ? updated : c));
+        toast.success(`Status alterado para ${newStatus}`);
+      } catch (err) {
+        console.error(err);
+        toast.error('Erro ao atualizar status.');
+      }
+    }
+  };
+
+  const handleDeleteCandidate = async () => {
+    if (window.confirm(`Tem certeza que deseja EXCLUIR o candidato ${selectedCandidate.nome}? Esta ação é irreversível.`)) {
+      try {
+        const { error } = await supabase.from('candidatos').delete().eq('id', selectedCandidate.id);
+        if (error) throw error;
+
+        logAction('DELETE', 'candidatos', `Excluiu candidato: ${selectedCandidate.nome}`, selectedCandidate, null);
+
+        setAllCandidates(prev => prev.filter(c => c.id !== selectedCandidate.id));
+        setSelectedCandidate(null);
+        toast.success('Candidato excluído permanentemente.');
+      } catch (err) {
+        console.error(err);
+        toast.error('Erro ao excluir candidato.');
+      }
     }
   };
 
@@ -155,6 +190,9 @@ export default function Inscritos() {
             </div>
           </div>
           <div className="flex space-x-3">
+            <button onClick={handleDeleteCandidate} className="p-2 border border-red-200 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Excluir Candidato">
+              <Trash2 size={20} />
+            </button>
             {isEditing ? (
               <>
                 <button onClick={() => setIsEditing(false)} disabled={isSaving} className="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 font-bold hover:bg-slate-50">Cancelar</button>

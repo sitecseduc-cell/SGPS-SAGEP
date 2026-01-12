@@ -5,6 +5,8 @@ import {
     FileSpreadsheet, FileText, Download, Printer,
     PieChart, Users, Briefcase, Calendar
 } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
 export default function Relatorios() {
     const [loading, setLoading] = useState(false);
@@ -49,12 +51,6 @@ export default function Relatorios() {
                 return;
             }
 
-            // Dynamic import to avoid SSR issues if using Next.js, though this is Vite. 
-            // Standard import works fine in Vite usually, but let's stick to top-level or clean usage.
-            // We need to ensure jsPDF is available.
-            const { jsPDF } = await import("jspdf");
-            await import("jspdf-autotable");
-
             const doc = new jsPDF();
             doc.text(title, 14, 22);
             doc.setFontSize(10);
@@ -74,8 +70,9 @@ export default function Relatorios() {
             doc.save(`${filename}_${new Date().toISOString().split('T')[0]}.pdf`);
             toast.success(`PDF ${filename} gerado!`);
         } catch (error) {
-            console.error(error);
-            toast.error('Erro ao gerar PDF.');
+            console.error('Erro PDF:', error);
+            // Mostra o erro real para o usuário (ajuda no debug)
+            toast.error(`Erro ao gerar PDF: ${error.message || error}`);
         } finally {
             setLoading(false);
         }

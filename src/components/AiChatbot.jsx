@@ -13,11 +13,24 @@ const genAI = new GoogleGenerativeAI(apiKey);
 export default function AiChatbot() {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([
-        { id: 1, sender: 'bot', text: 'Olá! Sou o Assistente Inteligente do SAGEP, potencializado pelo Google Gemini. Posso ajudar com inscrições, editais, vagas e dúvidas gerais.' }
+        { id: 1, sender: 'bot', text: 'Olá! Sou o Assistente Inteligente do SAGEP. Posso ajudar com dúvidas gerais ou sobre um edital específico.' }
     ]);
     const [inputText, setInputText] = useState('');
     const [isTyping, setIsTyping] = useState(false);
     const messagesEndRef = useRef(null);
+
+    // Context Selection State
+    const [availableProcesses, setAvailableProcesses] = useState([]);
+    const [selectedContext, setSelectedContext] = useState('geral'); // 'geral' or process_id
+
+    useEffect(() => {
+        fetchProcesses();
+    }, []);
+
+    const fetchProcesses = async () => {
+        const { data } = await supabase.from('processos').select('id, nome').order('created_at', { ascending: false });
+        if (data) setAvailableProcesses(data);
+    };
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -27,23 +40,6 @@ export default function AiChatbot() {
         scrollToBottom();
     }, [messages, isOpen, isTyping]);
 
-    // DEBUG: List available models
-    useEffect(() => {
-        /*
-        async function checkModels() {
-            try {
-                // Note: The SDK does not strictly expose listModels on the client instance easily 
-                // without admin-like privileges or using the REST API directly.
-                // But we can try a simple fetch to the API endpoint to see what's up 
-                // if we were in a node environment.
-                // Instead, let's just stick to the most stable model name known: 'gemini-pro'
-                // or 'gemini-1.5-flash'.
-                // If 1.5-flash fails, it is VERY strange.
-            } catch (e) { console.error(e); }
-        }
-        checkModels();
-        */
-    }, []);
 
     const handleSend = async (e) => {
         e.preventDefault();
@@ -69,45 +65,59 @@ export default function AiChatbot() {
         try {
             // 1. Coletar Contexto do Sistema (RAG Lite)
             const contextData = [];
+            let promptContextTitle = "CONTEXTO GERAL DO SISTEMA:";
 
-            // Buscar Vagas
-            const { data: vagas } = await supabase.from('vagas').select('municipio, escola, cargo, qtd').limit(10);
-            if (vagas && vagas.length > 0) {
-                const vagasStr = vagas.map(v => `- ${v.cargo} em ${v.municipio} (${v.escola}): ${v.qtd} vagas`).join('\n');
-                contextData.push(`VAGAS DISPONÍVEIS:\n${vagasStr}`);
-            }
+            if (selectedContext !== 'geral') {
+                // Fetch context specific to the process (Edital Text)
+                const { data: procData } = await supabase
+                    .from('processos')
+                    .select('nome, edital_texto')
+                    .eq('id', selectedContext)
+                    .single();
 
-            // Buscar Critérios
-            const { data: criterios } = await supabase.from('criterios_pontuacao').select('titulo, pontos').limit(10);
-            if (criterios && criterios.length > 0) {
-                const critStr = criterios.map(c => `- ${c.titulo}: ${c.pontos} pontos`).join('\n');
-                contextData.push(`CRITÉRIOS DE PONTUAÇÃO:\n${critStr}`);
-            }
+                if (procData && procData.edital_texto) {
+                    promptContextTitle = `CONTEXTO ESPECÍFICO DO EDITAL: ${procData.nome}`;
+                    contextData.push(`TEXTO DO EDITAL:\n${procData.edital_texto.substring(0, 25000)}`); // Limit to avoid token limits
+                    contextData.push(`NOTA: Responda APENAS com base no edital acima. Se não souber, diga que o edital não menciona.`);
+                } else {
+                    contextData.push(`(O usuário selecionou um processo, mas não há texto de edital salvo para ele.)`);
+                }
+            } else {
+                // General Context (Database info)
+                // Buscar Vagas
+                const { data: vagas } = await supabase.from('vagas').select('municipio, escola, cargo, qtd').limit(10);
+                if (vagas && vagas.length > 0) {
+                    const vagasStr = vagas.map(v => `- ${v.cargo} em ${v.municipio} (${v.escola}): ${v.qtd} vagas`).join('\n');
+                    contextData.push(`VAGAS DISPONÍVEIS:\n${vagasStr}`);
+                }
 
-            // Buscar FAQs (Busca Semântica ou Textual simples)
-            const { data: faqs } = await supabase.from('faqs').select('pergunta, resposta').textSearch('pergunta', text, { type: 'websearch', config: 'portuguese' }).limit(3);
-            if (faqs && faqs.length > 0) {
-                const faqStr = faqs.map(f => `P: ${f.pergunta}\nR: ${f.resposta}`).join('\n');
-                contextData.push(`FAQs RELACIONADAS:\n${faqStr}`);
+                // Buscar Critérios
+                const { data: criterios } = await supabase.from('criterios_pontuacao').select('titulo, pontos').limit(10);
+                if (criterios && criterios.length > 0) {
+                    const critStr = criterios.map(c => `- ${c.titulo}: ${c.pontos} pontos`).join('\n');
+                    contextData.push(`CRITÉRIOS DE PONTUAÇÃO:\n${critStr}`);
+                }
+
+                // Buscar FAQs (Busca Semântica ou Textual simples)
+                const { data: faqs } = await supabase.from('faqs').select('pergunta, resposta').textSearch('pergunta', text, { type: 'websearch', config: 'portuguese' }).limit(3);
+                if (faqs && faqs.length > 0) {
+                    const faqStr = faqs.map(f => `P: ${f.pergunta}\nR: ${f.resposta}`).join('\n');
+                    contextData.push(`FAQs RELACIONADAS:\n${faqStr}`);
+                }
             }
 
             // 2. Construir Prompt
             const contextString = contextData.join('\n\n');
-            // Tentativa com o nome mais padrão possível
             const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
             const prompt = `
-Você é o Assistente Virtual do SAGEP (Sistema de Gestão de Processos Seletivos).
-Seu objetivo é ajudar candidatos e usuários com dúvidas sobre o sistema, vagas e editais.
+You are the Virtual Assistant for SAGEP.
+Your goal is to answer questions based STRICTLY on the provided context.
 
-Use APENAS as informações de contexto abaixo para responder à pergunta do usuário.
-Se a informação não estiver no contexto, diga gentilmente que não possui essa informação específica no momento, mas que pode tentar ajudar com outros assuntos do sistema.
-Seja conciso, educado e use formatação Markdown (negrito, listas) para facilitar a leitura.
-
-CONTEXTO DO SISTEMA:
+${promptContextTitle}
 ${contextString}
 
-PERGUNTA DO USUÁRIO:
+USER QUESTION:
 ${text}
             `;
 
@@ -130,20 +140,35 @@ ${text}
             {isOpen && (
                 <div className="mb-4 bg-white dark:bg-slate-800 w-80 md:w-96 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden pointer-events-auto animate-fadeIn">
                     {/* Header */}
-                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 flex justify-between items-center text-white">
-                        <div className="flex items-center gap-2">
-                            <Bot size={20} />
-                            <div>
-                                <h3 className="font-bold text-sm">SAGEP Assistant</h3>
-                                <p className="text-[10px] opacity-80">Online</p>
+                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 text-white">
+                        <div className="flex justify-between items-center mb-3">
+                            <div className="flex items-center gap-2">
+                                <Bot size={20} />
+                                <div>
+                                    <h3 className="font-bold text-sm">SAGEP Assistant</h3>
+                                    <p className="text-[10px] opacity-80">Online</p>
+                                </div>
                             </div>
+                            <button
+                                onClick={() => setIsOpen(false)}
+                                className="text-white/80 hover:text-white transition-colors"
+                            >
+                                <X size={18} />
+                            </button>
                         </div>
-                        <button
-                            onClick={() => setIsOpen(false)}
-                            className="text-white/80 hover:text-white transition-colors"
+                        {/* Context Selector */}
+                        <select
+                            value={selectedContext}
+                            onChange={(e) => setSelectedContext(e.target.value)}
+                            className="w-full bg-white/20 border border-white/30 text-white text-xs rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-white custom-select"
                         >
-                            <X size={18} />
-                        </button>
+                            <option value="geral" className="text-slate-800">🌍 Contexto Geral (Vagas, FAQs)</option>
+                            <optgroup label="Perguntar sobre Edital">
+                                {availableProcesses.map(p => (
+                                    <option key={p.id} value={p.id} className="text-slate-800">📄 {p.nome}</option>
+                                ))}
+                            </optgroup>
+                        </select>
                     </div>
 
                     {/* Messages Area */}
