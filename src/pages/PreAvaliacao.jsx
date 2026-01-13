@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { toast } from 'sonner';
 import { CheckCircle, XCircle, FileText, AlertCircle, Loader2 } from 'lucide-react';
+import ImmersiveLoader from '../components/ImmersiveLoader';
 
 export default function PreAvaliacao() {
     const [candidatos, setCandidatos] = useState([]);
@@ -51,6 +52,8 @@ export default function PreAvaliacao() {
             setProcessing(null);
         }
     };
+
+    if (loading) return <ImmersiveLoader />;
 
     return (
         <div className="space-y-6 animate-fadeIn pb-20">

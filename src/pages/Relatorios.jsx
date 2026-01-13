@@ -9,6 +9,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell
 } from 'recharts';
+import ImmersiveLoader from '../components/ImmersiveLoader';
 
 export default function Relatorios() {
     const [loading, setLoading] = useState(false);
@@ -119,6 +120,7 @@ export default function Relatorios() {
 
     return (
         <div className="space-y-8 animate-fadeIn pb-20">
+            {loading && <ImmersiveLoader />}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h2 className="text-3xl font-bold text-slate-800">Central de Relatórios</h2>

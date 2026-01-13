@@ -10,12 +10,15 @@ import {
   Plus,
   ArrowRight,
   BookOpen,
-  Map
+  Map,
+  TrendingUp,
+  Activity
 } from 'lucide-react';
 import StatCard from '../components/StatCard';
 import FunnelChart from '../components/FunnelChart';
 import CardSkeleton from '../components/CardSkeleton';
 import OnboardingTour from '../components/OnboardingTour';
+import ImmersiveLoader from '../components/ImmersiveLoader';
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
@@ -31,26 +34,22 @@ export default function Dashboard() {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-
-        // ÚNICA requisição para buscar tudo
         const { data, error } = await supabase.rpc('get_dashboard_stats');
 
         if (error) throw error;
 
-        // Atualiza Cards
         setStats({
           candidatos: data.total_candidatos || 0,
           processos: data.total_processos || 0,
           vagasPreenchidas: data.vagas_preenchidas || 0,
-          atrasos: 0 // Se precisar calcular atrasos, faça no SQL também
+          atrasos: 0
         });
 
-        // Atualiza Funil sem novas requisições
         setFunnelData([
-          { label: 'Inscritos Totais', count: data.total_candidatos, color: 'bg-blue-600' },
-          { label: 'Em Análise', count: data.em_analise, color: 'bg-blue-500' },
-          { label: 'Classificados', count: data.classificados, color: 'bg-purple-500' },
-          { label: 'Convocados', count: data.convocados, color: 'bg-emerald-500' }
+          { label: 'Inscritos Totais', count: data.total_candidatos, color: '#6366f1' }, // Indigo 500
+          { label: 'Em Análise', count: data.em_analise, color: '#8b5cf6' }, // Violet 500
+          { label: 'Classificados', count: data.classificados, color: '#d946ef' }, // Fuchsia 500
+          { label: 'Convocados', count: data.convocados, color: '#10b981' } // Emerald 500
         ]);
 
       } catch (e) {
@@ -63,24 +62,53 @@ export default function Dashboard() {
     fetchDashboardData();
   }, []);
 
+  if (loading) {
+    return <ImmersiveLoader />;
+  }
+
   return (
     <div className="space-y-8 animate-fadeIn pb-10">
 
-      {/* Welcome Section */}
-      {/* Welcome Section */}
-      <div className="bg-gradient-to-br from-slate-900 to-slate-800 dark:from-indigo-950 dark:to-slate-900 rounded-2xl p-8 text-white shadow-2xl relative overflow-hidden border border-slate-700/50 group">
-        <div className="relative z-10">
-          <h1 className="text-3xl font-bold mb-2 tracking-tight">Bem-vindo à CPS</h1>
-          <p className="text-slate-300 max-w-2xl text-lg leading-relaxed">
-            Seu painel de controle central para gestão de processos seletivos públicos.
-            Acompanhe indicadores em tempo real e inicie novas ações.
-          </p>
+      {/* Hero Welcome Section */}
+      <div className="relative overflow-hidden rounded-3xl p-8 md:p-12 shadow-2xl">
+        {/* Animated Background Mesh */}
+        <div className="absolute inset-0 bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600"></div>
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150"></div>
+
+        {/* Abstract decoration */}
+        <div className="absolute -right-20 -top-20 w-96 h-96 bg-fuchsia-500/30 rounded-full blur-3xl animate-float"></div>
+        <div className="absolute -left-20 -bottom-20 w-80 h-80 bg-emerald-500/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '1s' }}></div>
+
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/90 text-xs font-semibold mb-4">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              Sistema Operacional
+            </div>
+            <h1 className="text-3xl md:text-5xl font-extrabold text-white tracking-tight mb-2">
+              Bem-vindo à <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-indigo-200">CPS</span>
+            </h1>
+            <p className="text-indigo-100/80 text-lg max-w-xl leading-relaxed font-light">
+              Painel de gestão inteligente para processos seletivos.
+              Acompanhe métricas, gerencie editais e controle convocações em um único lugar.
+            </p>
+          </div>
+
+          <div className="hidden lg:block">
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl flex items-center gap-4">
+              <div className="bg-white/20 p-3 rounded-xl text-white">
+                <Activity size={24} />
+              </div>
+              <div>
+                <p className="text-white/60 text-xs uppercase font-bold">Status do Servidor</p>
+                <p className="text-white font-bold">Online & Estável</p>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="absolute right-0 top-0 h-full w-1/3 bg-white/5 skew-x-12 transform translate-x-12 transition-transform duration-700 group-hover:translate-x-6"></div>
-        <div className="absolute -bottom-24 -left-20 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl"></div>
       </div>
 
-      {/* KPIs Grid */}
+      {/* KPI Stats Grid */}
       <div id="kpi-cards" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {loading ? (
           <>
@@ -88,49 +116,92 @@ export default function Dashboard() {
           </>
         ) : (
           <>
-            <StatCard title="Processos Ativos" value={stats.processos} icon={GitCommit} color="bg-blue-100 text-blue-600" />
-            <StatCard title="Candidatos na Base" value={stats.candidatos.toLocaleString()} icon={Users} color="bg-purple-100 text-purple-600" subtext="Total acumulado" />
-            <StatCard title="Vagas Preenchidas" value={stats.vagasPreenchidas} icon={CheckCircle} color="bg-emerald-100 text-emerald-600" subtext="No ano corrente" />
-            <StatCard title="Alertas do Sistema" value={stats.atrasos} icon={AlertTriangle} color="bg-red-100 text-red-600" alert={stats.atrasos > 0} subtext="Requer atenção" />
+            <StatCard
+              title="Processos Ativos"
+              value={stats.processos}
+              icon={GitCommit}
+              color="text-indigo-600"
+            />
+            <StatCard
+              title="Candidatos na Base"
+              value={stats.candidatos.toLocaleString()}
+              icon={Users}
+              color="text-violet-600"
+              subtext="Total acumulado"
+            />
+            <StatCard
+              title="Vagas Preenchidas"
+              value={stats.vagasPreenchidas}
+              icon={CheckCircle}
+              color="text-emerald-600"
+              subtext="Neste ano"
+            />
+            <StatCard
+              title="Alertas"
+              value={stats.atrasos}
+              icon={AlertTriangle}
+              color="text-red-600"
+              alert={stats.atrasos > 0}
+              subtext="Ações pendentes"
+            />
           </>
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Funnel Chart */}
-        <div className="lg:col-span-2 h-[400px]">
-          <FunnelChart loading={loading} data={funnelData} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Funnel Chart Section */}
+        <div className="lg:col-span-2 glass-card p-8 border border-white/40 dark:border-white/5">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                <TrendingUp size={20} className="text-indigo-500" />
+                Funil de Seleção
+              </h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Visão geral do fluxo de candidatos</p>
+            </div>
+            <button className="text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors">
+              Ver Detalhes
+            </button>
+          </div>
+
+          <div className="h-[300px] w-full flex items-center justify-center">
+            <FunnelChart loading={loading} data={funnelData} />
+          </div>
         </div>
 
-        {/* Quick Actions / Shortcuts */}
-        <div id="quick-actions" className="lg:col-span-1 space-y-6">
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 h-full">
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6">Acesso Rápido</h3>
+        {/* Quick Actions Panel */}
+        <div id="quick-actions" className="lg:col-span-1">
+          <div className="glass-card p-8 h-full border border-white/40 dark:border-white/5 flex flex-col">
+            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-6">Acesso Rápido</h3>
 
-            <div className="space-y-3">
-              <Link to="/processos" className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl hover:bg-blue-50 dark:hover:bg-slate-700 border border-slate-100 dark:border-slate-600 transition-all group">
-                <div className="flex items-center gap-3">
-                  <div className="bg-blue-100 text-blue-600 p-2 rounded-lg"><Plus size={18} /></div>
-                  <span className="font-semibold text-slate-700 dark:text-slate-200">Novo Processo Seletivo</span>
-                </div>
-                <ArrowRight size={16} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
-              </Link>
+            <div className="space-y-4 flex-1">
+              <QuickActionLink
+                to="/processos"
+                icon={Plus}
+                label="Novo Processo"
+                color="bg-indigo-500"
+                desc="Criar novo edital"
+              />
+              <QuickActionLink
+                to="/planejamento"
+                icon={BookOpen}
+                label="Configurar Vagas"
+                color="bg-violet-500"
+                desc="Mapa de vagas"
+              />
+              <QuickActionLink
+                to="/lotacao"
+                icon={Map}
+                label="Mapa de Lotação"
+                color="bg-emerald-500"
+                desc="Distribuir servidores"
+              />
+            </div>
 
-              <Link to="/planejamento" className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl hover:bg-emerald-50 dark:hover:bg-slate-700 border border-slate-100 dark:border-slate-600 transition-all group">
-                <div className="flex items-center gap-3">
-                  <div className="bg-emerald-100 text-emerald-600 p-2 rounded-lg"><BookOpen size={18} /></div>
-                  <span className="font-semibold text-slate-700 dark:text-slate-200">Configurar Vagas</span>
-                </div>
-                <ArrowRight size={16} className="text-slate-400 group-hover:text-emerald-500 transition-colors" />
-              </Link>
-
-              <Link to="/lotacao" className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl hover:bg-purple-50 dark:hover:bg-slate-700 border border-slate-100 dark:border-slate-600 transition-all group">
-                <div className="flex items-center gap-3">
-                  <div className="bg-purple-100 text-purple-600 p-2 rounded-lg"><Map size={18} /></div>
-                  <span className="font-semibold text-slate-700 dark:text-slate-200">Mapa de Lotação</span>
-                </div>
-                <ArrowRight size={16} className="text-slate-400 group-hover:text-purple-500 transition-colors" />
-              </Link>
+            <div className="mt-8 pt-6 border-t border-slate-100 dark:border-white/5">
+              <p className="text-xs text-slate-400 text-center">
+                Última atualização: {new Date().toLocaleTimeString()}
+              </p>
             </div>
           </div>
         </div>
@@ -139,3 +210,24 @@ export default function Dashboard() {
     </div>
   );
 }
+
+// Helper Component for Quick Actions
+const QuickActionLink = ({ to, icon: Icon, label, color, desc }) => (
+  <Link
+    to={to}
+    className="flex items-center justify-between p-4 rounded-2xl bg-white/50 dark:bg-slate-800/50 border border-slate-100/50 dark:border-white/5 hover:bg-white hover:shadow-lg hover:shadow-indigo-500/10 hover:-translate-y-1 transition-all duration-300 group"
+  >
+    <div className="flex items-center gap-4">
+      <div className={`${color} p-3 rounded-xl text-white shadow-md shadow-indigo-500/20 group-hover:scale-110 transition-transform`}>
+        <Icon size={20} />
+      </div>
+      <div>
+        <span className="font-bold text-slate-700 dark:text-slate-200 block">{label}</span>
+        <span className="text-xs text-slate-400 font-medium">{desc}</span>
+      </div>
+    </div>
+    <div className="w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-700/50 flex items-center justify-center group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+      <ArrowRight size={14} className="text-slate-300 group-hover:text-indigo-600" />
+    </div>
+  </Link>
+);

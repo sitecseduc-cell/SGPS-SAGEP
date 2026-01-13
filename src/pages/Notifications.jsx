@@ -12,6 +12,7 @@ import {
     Inbox
 } from 'lucide-react';
 import { toast } from 'sonner';
+import ImmersiveLoader from '../components/ImmersiveLoader';
 
 export default function Notifications() {
     const { user, role } = useAuth();
@@ -169,10 +170,7 @@ export default function Notifications() {
             {/* List */}
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden min-h-[400px]">
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center h-64 text-slate-400 gap-3">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                        <p>Carregando histórico...</p>
-                    </div>
+                    <ImmersiveLoader />
                 ) : filteredNotifications.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-64 text-slate-400 gap-4">
                         <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700/50 rounded-full flex items-center justify-center">
@@ -189,8 +187,8 @@ export default function Notifications() {
                             >
                                 <div className="flex items-start gap-4">
                                     <div className={`mt-1 h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 ${notif.type === 'audit'
-                                            ? 'bg-orange-100 text-orange-600'
-                                            : 'bg-blue-100 text-blue-600'
+                                        ? 'bg-orange-100 text-orange-600'
+                                        : 'bg-blue-100 text-blue-600'
                                         }`}>
                                         {notif.type === 'audit' ? <ShieldAlert size={20} /> : <MessageCircle size={20} />}
                                     </div>

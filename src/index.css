@@ -1,27 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'Outfit', 'Inter', system-ui, sans-serif;
   line-height: 1.5;
   font-weight: 400;
+
+  /* Aurora Theme Colors */
+  --pk-primary: 99, 102, 241;
+  /* Indigo 500 */
+  --pk-secondary: 139, 92, 246;
+  /* Violet 500 */
+  --pk-accent: 16, 185, 129;
+  /* Emerald 500 */
+
   color-scheme: light;
 }
 
 body {
   margin: 0;
   padding: 0;
-  background-color: #f8fafc;
-  background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
-  background-size: 24px 24px;
+  /* Aurora Background */
+  background-color: #f3f4f6;
+  background-image:
+    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(59, 130, 246, 0.1) 0px, transparent 50%);
+  background-attachment: fixed;
+  color: #1f2937;
   min-height: 100vh;
   width: 100%;
+  -webkit-font-smoothing: antialiased;
 }
 
 .dark body {
-  background-color: #0f172a;
-  background-image: radial-gradient(#1e293b 1px, transparent 1px);
+  background-color: #030712;
+  /* Deepest Slate */
+  color: #f3f4f6;
+  background-image:
+    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.15) 0px, transparent 50%);
 }
 
 #root {
@@ -29,6 +52,31 @@ body {
   height: 100%;
 }
 
+/* --- GLASSMORPHISM UTILITIES --- */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.dark .glass {
+  background: rgba(17, 24, 39, 0.6);
+  /* Slate 900 / 60 */
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-card {
+  @apply glass rounded-2xl shadow-xl shadow-indigo-500/5 transition-all duration-300;
+}
+
+.glass-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px -10px rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+/* --- ANIMATIONS --- */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -41,11 +89,55 @@ body {
   }
 }
 
-.animate-fadeIn {
-  animation: fadeIn 0.4s ease-out forwards;
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
-/* Custom Scrollbar for Sidebar & Body */
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-5px);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -56,91 +148,22 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: rgba(156, 163, 175, 0.5);
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: rgba(107, 114, 128, 0.8);
 }
 
-.dark ::-webkit-scrollbar-thumb {
-  background: #334155;
-}
-
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
-}
-
-/* --- Driver.js Custom Theme (Onboarding) --- */
+/* Drivers.js Theme Override */
 .driver-popover.driverjs-theme {
-  background-color: #ffffff;
-  color: #1e293b;
-  padding: 20px;
-  border-radius: 16px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  border: 1px solid #e2e8f0;
-  max-width: 400px;
-}
-
-.driver-popover.driverjs-theme .driver-popover-title {
-  color: #0f172a;
-  /* Slate 900 */
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
-  font-family: 'Inter', sans-serif;
-}
-
-.driver-popover.driverjs-theme .driver-popover-description {
-  color: #64748b;
-  /* Slate 500 */
-  font-size: 0.95rem;
-  line-height: 1.5;
-  margin-bottom: 1.5rem;
-  font-family: 'Inter', sans-serif;
-}
-
-.driver-popover.driverjs-theme .driver-popover-footer {
-  margin-top: 0;
-}
-
-.driver-popover.driverjs-theme .driver-popover-btn {
-  background-color: #f1f5f9;
-  /* Slate 100 */
-  color: #475569;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  padding: 8px 16px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  transition: all 0.2s;
-  text-shadow: none;
-}
-
-.driver-popover.driverjs-theme .driver-popover-btn:hover {
-  background-color: #e2e8f0;
+  @apply glass-card;
+  background-color: white;
   color: #1e293b;
 }
 
-.driver-popover.driverjs-theme .driver-popover-next-btn {
-  background-color: #2563eb !important;
-  /* Blue 600 */
-  color: white !important;
-  border: 1px solid #2563eb !important;
-  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
-}
-
-.driver-popover.driverjs-theme .driver-popover-next-btn:hover {
-  background-color: #1d4ed8 !important;
-  /* Blue 700 */
-  transform: translateY(-1px);
-}
-
-.driver-popover.driverjs-theme .driver-popover-close-btn {
-  color: #94a3b8;
-}
-
-.driver-popover.driverjs-theme .driver-popover-close-btn:hover {
-  color: #64748b;
+.dark .driver-popover.driverjs-theme {
+  background-color: #1e293b;
+  color: white;
 }

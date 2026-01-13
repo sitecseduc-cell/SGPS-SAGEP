@@ -30,6 +30,7 @@ const Notifications = React.lazy(() => import('./pages/Notifications'));
 
 import TryBoundary from './components/TryBoundary';
 import NetworkStatus from './components/NetworkStatus';
+import ImmersiveLoader from './components/ImmersiveLoader';
 
 
 export default function App() {
@@ -39,9 +40,7 @@ export default function App() {
       <BrowserRouter>
         <AuthProvider>
           <React.Suspense fallback={
-            <div className="flex items-center justify-center h-screen w-screen bg-slate-50 dark:bg-slate-900">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            </div>
+            <ImmersiveLoader />
           }>
             <Routes>
 

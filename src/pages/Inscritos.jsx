@@ -4,6 +4,7 @@ import {
   User, MapPin, FileText, Clock, FileCheck, Eye,
   Shield, CheckCircle, X, AlertTriangle, Loader, Plus
 } from 'lucide-react';
+import ImmersiveLoader from '../components/ImmersiveLoader';
 import CandidateTable from '../components/CandidateTable';
 import NewCandidateModal from '../components/NewCandidateModal';
 import { TableSkeleton, Spinner } from '../components/ui/Loading';
@@ -244,7 +245,7 @@ export default function Inscritos() {
         </div>
         <div className="flex-1 overflow-hidden flex flex-col">
           {loading ? (
-            <TableSkeleton rows={pageSize} />
+            <ImmersiveLoader />
           ) : (
             <CandidateTable
               candidates={filteredData}

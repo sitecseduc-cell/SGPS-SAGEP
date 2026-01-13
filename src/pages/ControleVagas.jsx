@@ -3,6 +3,7 @@ import { Search, Plus, Filter, FileSpreadsheet, Download, Loader2, Check, Edit, 
 import { supabase } from '../lib/supabaseClient';
 import { toast } from 'sonner';
 import NewVacancyModal from '../components/NewVacancyModal';
+import ImmersiveLoader from '../components/ImmersiveLoader';
 
 export default function ControleVagas() {
     const [vagas, setVagas] = useState([]);
@@ -163,6 +164,7 @@ export default function ControleVagas() {
 
     return (
         <div className="space-y-6 animate-fadeIn pb-20 relative">
+            {loading && <ImmersiveLoader />}
             <NewVacancyModal
                 isOpen={showNewVacancyModal}
                 onClose={handleCloseModal}

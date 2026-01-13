@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import * as pdfjsLib from 'pdfjs-dist';
 import { GeminiService } from '../services/GeminiService';
+import ImmersiveLoader from '../components/ImmersiveLoader';
 
 // Configurar worker do PDF.js (necessário para vite)
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
@@ -187,7 +188,7 @@ export default function Processos() {
       </div>
       {/* Tabela */}
       {loading ? (
-        <TableSkeleton rows={5} cols={5} />
+        <ImmersiveLoader />
       ) : (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="overflow-x-auto">

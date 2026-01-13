@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import ImmersiveLoader from '../components/ImmersiveLoader';
 import { Users, Briefcase, MapPin, PieChart } from 'lucide-react';
 import { Loader2 } from 'lucide-react';
 
@@ -49,7 +50,7 @@ export default function QuantidadeInscritos() {
         }
     };
 
-    if (loading) return <div className="flex h-96 items-center justify-center"><Loader2 className="animate-spin text-blue-600" size={40} /></div>;
+    if (loading) return <ImmersiveLoader />;
 
     return (
         <div className="space-y-8 animate-fadeIn pb-20">
