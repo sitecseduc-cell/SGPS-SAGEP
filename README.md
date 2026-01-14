@@ -1,20 +1,79 @@
-<<<<<<< HEAD
-# React + Vite
+# CPS (Sistema de Gestão de Processos Públicos)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Sistema moderno para gestão de processos seletivos, candidatos e vagas, desenvolvido com React, Vite e Supabase.
 
-Currently, two official plugins are available:
+## 🚀 Começando
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Siga estas instruções para configurar o projeto no seu ambiente local.
 
-## React Compiler
+### Pré-requisitos
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+*   Node.js (versão 18 ou superior recomendada)
+*   Conta no Supabase
 
-## Expanding the ESLint configuration
+### 📥 Instalação
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
-=======
-# SGPS-SAGEP
->>>>>>> 8ed4f18d0281cc31d07198ef6329b4fbfad5bf6a
+1.  Clone o repositório (se aplicável).
+2.  Instale as dependências:
+
+```bash
+npm install
+```
+
+### 🔑 Configuração de Variáveis de Ambiente
+
+Crie um arquivo `.env` na raiz do projeto (baseado no exemplo abaixo) e adicione suas credenciais do Supabase:
+
+```env
+VITE_SUPABASE_URL=sua_url_do_supabase
+VITE_SUPABASE_ANON_KEY=sua_chave_anonima_publica
+```
+
+> **Nota**: As chaves devem começar com `VITE_` para serem expostas ao frontend.
+
+### 🗄️ Configuração do Banco de Dados (Supabase)
+
+Para garantir o funcionamento correto de funções, índices de performance e segurança (RLS), você deve executar os scripts de migração no **SQL Editor** do seu painel Supabase.
+
+Execute os arquivos na seguinte ordem (localizados na raiz do projeto):
+
+1.  **`optimized_migration.sql`**: Cria as RPCs (`get_dashboard_stats`, `get_my_profile`) e índices de performance.
+2.  **`security_policies.sql`**: Habilita o RLS (Row Level Security) e define as políticas de acesso para `profiles`, `candidatos` e `processos`.
+
+### ⚡ Executando o Projeto
+
+Para iniciar o servidor de desenvolvimento:
+
+```bash
+npm run dev
+```
+
+O sistema estará acessível em `http://localhost:3000` (ou porta indicada).
+
+### 🧪 Testes e Linting
+
+*   **Linting**: Para verificar o estilo de código:
+    ```bash
+    npm run lint
+    ```
+*   **Testes**: Para executar a suíte de testes (Vitest):
+    ```bash
+    npm test
+    ```
+
+### 📦 Build para Produção
+
+Para gerar a versão otimizada para deploy:
+
+```bash
+npm run build
+```
+
+Os arquivos estáticos serão gerados na pasta `dist`.
+
+## 🛠️ Tecnologias Utilizadas
+
+*   **Frontend**: React 19, Vite, Tailwind CSS, Lucide React, Recharts.
+*   **Backend / BaaS**: Supabase (Auth, Database, Realtime).
+*   **Mapas**: Leaflet.
+*   **PDF**: jsPDF.
