@@ -24,7 +24,8 @@ const SidebarItem = ({ icon: Icon, label, to }) => {
   const location = useLocation();
   const isActive = (path) => {
     if (path === '/' && location.pathname === '/') return true;
-    if (path !== '/' && location.pathname.startsWith(path)) return true;
+    // Fix: Ensure exact match or sub-path match (e.g. /vagas/123) to avoid /vagas matching /vagas-especiais
+    if (path !== '/' && (location.pathname === path || location.pathname.startsWith(path + '/'))) return true;
     return false;
   };
 
