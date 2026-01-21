@@ -13,74 +13,135 @@ if (API_KEY) {
 const MODEL_NAME = "gemini-flash-latest";
 
 export const GeminiService = {
+
     /**
-     * Analisa o texto de um Edital e extrai informações estruturadas.
-     * @param {string} editalText - O texto extraído do PDF do edital.
-     * @returns {Promise<Object>} - Objeto com os dados extraídos (nome, datas, descrição, etc).
+     * Análise Profunda do Edital (RAG Zero-Shot)
+     * Extrai dados estruturados complexos e insights.
      */
-    async analyzeEdital(editalText) {
-        if (!genAI) {
-            console.warn("Gemini API Key não configurada. Retornando dados mockados.");
-            // Mock para testar sem chave
-            return {
-                nome: "Processo Seletivo (Extraído)",
-                inicio: new Date().toISOString().split('T')[0],
-                fim: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                descricao: "Descrição extraída automaticamente do edital (Mock).",
-                fases_previstas: ["Inscrição", "Homologação", "Recursos", "Resultado Final"],
-                cargos: ["Cargo A", "Cargo B"],
-                etapas: ["Etapa 1", "Etapa 2"]
-            };
+    async analyzeEditalDeep(editalText) {
+        if (!genAI) throw new Error("API Key não configurada");
+
+        try {
+            const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+            const prompt = `
+            ATUE COMO UM ESPECIALISTA EM CONCURSOS E PROCESSOS SELETIVOS PÚBLICOS.
+            Analise o seguinte Edital Completo e extraia informações estratégicas.
+
+            TEXTO DO EDITAL:
+            ${editalText.substring(0, 30000)}
+
+            RETORNE APENAS UM JSON VÁLIDO (SEM MARKDOWN, SEM EXPLICAÇÕES) COM ESTA ESTRUTURA:
+            {
+                "dados_basicos": {
+                    "nome": "Nome do PSS",
+                    "resumo": "Resumo executivo de 2 parágrafos",
+                    "banca": "Nome da banca ou Comissão",
+                    "receita_estimada": "Valor ou 'Não informado'",
+                    "vagas_total": "Número ou 'CR'"
+                },
+                "datas_importantes": [
+                    { "evento": "Início Inscrição", "data": "YYYY-MM-DD" },
+                    { "evento": "Fim Inscrição", "data": "YYYY-MM-DD" },
+                    { "evento": "Prova/Análise", "data": "YYYY-MM-DD" },
+                    { "evento": "Resultado Final", "data": "YYYY-MM-DD" }
+                ],
+                "requisitos_principais": ["Requisito 1", "Requisito 2"],
+                "cargos": [
+                    { "nome": "Cargo A", "vagas": "X", "salario": "R$ 0,00" },
+                    { "nome": "Cargo B", "vagas": "Y", "salario": "R$ 0,00" }
+                ],
+                "pontos_atencao": ["Item polêmico 1", "Risco de prazo 2"],
+                "sugestoes_ia": ["Ideia para melhorar divulgação", "Dica para etapa de análise"]
+            }
+            `;
+
+            const result = await model.generateContent(prompt);
+            let text = (await result.response).text();
+
+            // Limpeza Agressiva para garantir JSON
+            text = text.replace(/```json/g, '').replace(/```/g, '');
+            const firstBrace = text.indexOf('{');
+            const lastBrace = text.lastIndexOf('}');
+
+            if (firstBrace !== -1 && lastBrace !== -1) {
+                text = text.substring(firstBrace, lastBrace + 1);
+            }
+
+            return JSON.parse(text);
+        } catch (error) {
+            console.error("Deep Analysis Error:", error);
+            throw new Error(`Falha na análise da IA: ${error.message}`);
         }
+    },
+
+    /**
+     * Chat com o Documento
+     */
+    async chatDocument(message, documentText, history = []) {
+        if (!genAI) return "Erro: API Key não configurada.";
 
         try {
             const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
-            const prompt = `
-        Analise o texto deste Edital de Processo Seletivo (PSS) e extraia dados estruturados.
-        
-        Retorne APENAS um JSON com os campos:
-        - "nome": Nome sugestivo do PSS (Ex: PSS Educação 2025).
-        - "descricao": Resumo de 2 linhas sobre o objetivo.
-        - "inicio": Data de início das inscrições (YYYY-MM-DD). Use hoje se não achar.
-        - "fim": Data fim das inscrições (YYYY-MM-DD). Use inicio + 30 dias se não achar.
-        - "cargos": Array de strings com os nomes dos principais cargos ofertados (Ex: ["Professor", "Merendeira"]).
-        - "etapas": Array de strings com as fases do certame (Ex: ["Inscrições", "Prova de Títulos", "Resultado"]).
+            // Limit context to avoid token overflow, keep recent history
+            const context = `
+            CONTEXTO: Você está analisando um Edital de Processo Seletivo (PDF extraído).
+            Responda APENAS com base no texto abaixo. Se não estiver no texto, diga que não encontrou.
+            
+            TRECHO DO DOCUMENTO (Primeiros 30k caracteres):
+            ${documentText.substring(0, 30000)}
+            
+            HISTÓRICO DA CONVERSA:
+            ${history.map(h => `${h.role}: ${h.text}`).join('\n')}
+            
+            USUÁRIO: ${message}
+            RESPOSTA (Seja direto e cite a seção do edital se possível):
+            `;
 
-        Texto do Edital (início):
-        ${editalText.substring(0, 25000)}
-        
-        IMPORTANTE: Responda SOMENTE o JSON válido.
-      `;
-
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
-            let text = response.text();
-
-            // Limpeza básica se o modelo retornar md
-            text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-
-            return JSON.parse(text);
-
+            const result = await model.generateContent(context);
+            return (await result.response).text();
         } catch (error) {
-            console.error("Erro ao analisar edital com Gemini:", error);
-            // Mock inteligente em caso de falha real da API (ou falta de cota)
+            return "Não consegui ler o documento para responder a isso.";
+        }
+    },
+
+    /**
+     * Mantendo compatibilidade com código antigo (Wrapper para Deep)
+     */
+    async analyzeEdital(editalText) {
+        // Redireciona para o deep
+        try {
+            const data = await this.analyzeEditalDeep(editalText);
+
+            // Formata description rica
+            const cargosStr = data.cargos?.map(c => `- ${c.nome} (${c.vagas} vagas)`).join('\n') || '';
+            const desc = `${data.dados_basicos.resumo}\n\nCARGOS:\n${cargosStr}\n\nPONTOS DE ATENÇÃO:\n${data.pontos_atencao.join('\n- ')}`;
+
             return {
-                nome: "Processo Seletivo (Detectado)",
-                descricao: "Falha na análise detalhada. Preencha manualmente.",
+                nome: data.dados_basicos.nome,
+                descricao: desc,
+                inicio: data.datas_importantes.find(d => d.evento.includes("Início"))?.data || new Date().toISOString().split('T')[0],
+                fim: data.datas_importantes.find(d => d.evento.includes("Fim"))?.data || new Date().toISOString().split('T')[0],
+                cargos: data.cargos.map(c => c.nome),
+                etapas: data.datas_importantes.map(d => d.evento),
+                raw_data: data // Passa o objeto completo para quem quiser usar
+            };
+        } catch (e) {
+            console.error("Fallback to legacy analysis due to error:", e);
+            // Dummy fallback se o deep falhar muito feio
+            return {
+                nome: "Edital Processado (Erro IA)",
+                descricao: "Não foi possível realizar a análise profunda.",
                 inicio: new Date().toISOString().split('T')[0],
-                fim: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                cargos: ["Cargo Genérico 1", "Cargo Genérico 2"],
-                etapas: ["Inscrição", "Análise", "Resultado"]
+                fim: new Date().toISOString().split('T')[0],
+                cargos: [],
+                etapas: []
             };
         }
     },
 
     /**
-     * Chat interativo com contexto do sistema.
-     * @param {string} message - Mensagem do usuário.
-     * @param {string} systemContext - Contexto injetado (Vagas, FAQs, etc).
-     * @returns {Promise<string>} - Resposta do bot.
+     * Chat interativo com contexto do sistema (Global Chatbot).
      */
     async chat(message, systemContext = '') {
         if (!genAI) {
@@ -113,6 +174,81 @@ export const GeminiService = {
         } catch (error) {
             console.error("Erro no Chat Gemini:", error);
             return `Desculpe, tive um problema técnico ao processar sua mensagem. (${error.message || 'Erro desconhecido'})`;
+        }
+    },
+
+    /**
+     * Módulo de Convocação Inteligente
+     * Cruza vagas abertas com lista de classificados.
+     */
+    async generateConvocationSuggestion(vagasDisponiveis, listaCandidatos) {
+        if (!genAI) throw new Error("API Key não configurada");
+
+        try {
+            const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+
+            // Simplifica os dados para economizar tokens
+            const vagasSimples = vagasDisponiveis.map(v => ({
+                id: v.id,
+                cargo: v.cargo_funcao || v.cargo,
+                cidade: v.municipio,
+                dre: v.dre
+            }));
+
+            const candidatosSimples = listaCandidatos.map(c => ({
+                id: c.id,
+                nome: c.nome,
+                cargo: c.cargo_pretendido || c.cargo, // Tenta pegar o cargo
+                cidade: c.localidade || c.cidade,
+                pontuacao: c.pontuacao || 'N/A', // Assume pontuação se existir
+                status: c.status
+            }));
+
+            const prompt = `
+            ATUE COMO UM GESTOR DE RH PÚBLICO.
+            Seu objetivo é preencher as vagas abertas convocando os melhores candidatos disponíveis.
+
+            REGRAS:
+            1. O cargo do candidato DEVE ser compatível com a vaga.
+            2. A cidade/localidade DEVE ser compatível (ou próxima).
+            3. Priorize candidatos com status 'Classificado'.
+            4. Se tiver pontuação, priorize a maior.
+
+            LISTA DE VAGAS ABERTAS:
+            ${JSON.stringify(vagasSimples)}
+
+            LISTA DE CANDIDATOS:
+            ${JSON.stringify(candidatosSimples)}
+
+            RETORNE UM JSON COM ESTA ESTRUTURA EXATA (SEM MARKDOWN):
+            {
+                "sugestoes": [
+                    {
+                        "vaga_id": "ID da vaga",
+                        "candidato_id": "ID do candidato escolhido",
+                        "motivo": "Explicação curta (ex: 'Maior nota para Belém')",
+                        "match_score": 0 a 100
+                    }
+                ],
+                "sem_candidato": ["ID das vagas que sobraram"]
+            }
+            `;
+
+            const result = await model.generateContent(prompt);
+            let text = (await result.response).text();
+
+            text = text.replace(/```json/g, '').replace(/```/g, '');
+            const firstBrace = text.indexOf('{');
+            const lastBrace = text.lastIndexOf('}');
+            if (firstBrace !== -1 && lastBrace !== -1) {
+                text = text.substring(firstBrace, lastBrace + 1);
+            }
+
+            return JSON.parse(text);
+
+        } catch (error) {
+            console.error("Erro na Convocação Inteligente:", error);
+            throw new Error("Falha ao gerar sugestão de convocação.");
         }
     }
 };

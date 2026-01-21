@@ -2,11 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Edit, FileText, Calendar, Layers, Trash2, Sparkles, Upload } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import NewProcessModal from '../components/NewProcessModal';
+import AnalysisModal from '../components/AnalysisModal';
 import TableSkeleton from '../components/TableSkeleton';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import * as pdfjsLib from 'pdfjs-dist';
 import { GeminiService } from '../services/GeminiService';
+import { fetchProcessos, createProcesso, updateProcesso, deleteProcesso } from '../services/processos';
 import ImmersiveLoader from '../components/ImmersiveLoader';
 
 // Configurar worker do PDF.js (usando arquivo na pasta public)
@@ -14,15 +16,19 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 export default function Processos() {
   const fileInputRef = useRef(null);
+  const navigate = useNavigate();
   const [processos, setProcessos] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState(null);
   const [editingProcess, setEditingProcess] = useState(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
+  const [pdfText, setPdfText] = useState('');
 
   // Initial Fetch
   useEffect(() => {
-    fetchProcessos();
+    loadProcessos();
   }, []);
 
   const handleanalyzeClick = () => {
@@ -62,50 +68,85 @@ export default function Processos() {
     try {
       toast.info("Lendo arquivo PDF...");
       const text = await extractPdfText(file);
+      setPdfText(text);
 
-      toast.info("Analisando com IA (Gemini)...");
-      const dados = await GeminiService.analyzeEdital(text);
+      toast.info("Realizando Análise Profunda com IA...");
+      // Use the new Deep Analysis
+      const dados = await GeminiService.analyzeEditalDeep(text);
 
-      // Formata os dados extras na descrição
-      const cargosStr = dados.cargos?.length ? `\n\n📌 **Cargos Identificados:**\n- ${dados.cargos.join('\n- ')}` : '';
-      const etapasStr = dados.etapas?.length ? `\n\n📅 **Fases Previstas:**\n- ${dados.etapas.join('\n- ')}` : '';
-      const descriptionFull = (dados.descricao || '') + cargosStr + etapasStr;
+      setAnalysisResult(dados);
+      setIsAnalysisModalOpen(true);
 
-      // Preenche o formulário com os dados da IA
-      setEditingProcess({
-        isAiDraft: true, // Flag para indicar que é rascunho
-        nome: dados.nome,
-        descricao: descriptionFull,
-        inicio: dados.inicio,
-        fim: dados.fim
-      });
-      setIsModalOpen(true);
-
-      toast.success("Análise concluída! Verifique os dados.");
+      toast.success("Análise concluída!");
     } catch (error) {
       console.error(error);
-      toast.error("Erro ao analisar arquivo: " + error.message);
+      toast.error("Erro ao analisar: " + error.message);
     } finally {
       setAnalyzing(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  // Update fetchProcessos
-  const fetchProcessos = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('processos')
-      .select('*')
-      .order('created_at', { ascending: false });
+  const handleCreateFromAnalysis = (aiData) => {
+    setIsAnalysisModalOpen(false);
 
-    if (error) {
+    // Map Deep Data to Form Data
+    const dados = aiData.raw_data || aiData;
+    const basics = dados.dados_basicos || {};
+    const dates = dados.datas_importantes || [];
+
+    const inicio = dates.find(d => d.evento.includes("Início"))?.data;
+    const fim = dates.find(d => d.evento.includes("Fim"))?.data;
+
+    const cargosStr = dados.cargos?.map(c => `- ${c.nome} (${c.vagas})`).join('\n') || '';
+    const risksStr = dados.pontos_atencao?.map(r => `⚠️ ${r}`).join('\n') || '';
+
+    const richDescription = `
+${basics.resumo || ''}
+
+📋 **CARGOS & VAGAS:**
+${cargosStr}
+
+⚠️ **PONTOS DE ATENÇÃO:**
+${risksStr}
+
+💡 **SUGESTÕES DA IA:**
+${dados.sugestoes_ia?.join('\n- ') || ''}
+    `.trim();
+
+    setEditingProcess({
+      isAiDraft: true,
+      nome: basics.nome || aiData.nome || 'Novo Processo',
+      descricao: richDescription,
+      inicio: inicio,
+      fim: fim,
+      ai_metadata: dados // Keep full metadata
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleViewAnalysis = (proc) => {
+    if (!proc.ai_metadata || Object.keys(proc.ai_metadata).length === 0) {
+      toast.info("Este processo não possui análise de IA armazenada.");
+      return;
+    }
+    setAnalysisResult({ raw_data: proc.ai_metadata, nome: proc.nome });
+    setPdfText('');
+    setIsAnalysisModalOpen(true);
+  };
+
+  // Update fetchProcessos to use Service
+  const loadProcessos = async () => {
+    setLoading(true);
+    try {
+      const data = await fetchProcessos();
+      setProcessos(data || []);
+    } catch (error) {
       console.error('Erro ao buscar processos:', error);
       toast.error('Erro ao carregar processos');
-    } else if (data) {
-      setProcessos(data);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // Abre modal para CRIAR
@@ -120,78 +161,67 @@ export default function Processos() {
     setIsModalOpen(true);
   };
 
-  // Função Centralizada de Salvar (Cria ou Atualiza)
+  // Initial Fetch gets renamed to loadProcessos to avoid confusion, update useEffect
+  useEffect(() => {
+    loadProcessos();
+  }, []);
+
+  // ... (handleanalyzeClick, extractPdfText, handleFileUpload, handleCreateFromAnalysis, handleViewAnalysis, handleOpenCreate, handleOpenEdit)
+
+  // Função Centralizada de Salvar (Cria ou Atualiza) via Service
   const handleSaveProcess = async (formData) => {
-    // Se tem ID, é update real. Se for rascunho de IA (sem ID), é criação.
-    if (editingProcess?.id) {
-      // --- MODO EDIÇÃO (UPDATE) ---
-      const { data, error } = await supabase
-        .from('processos')
-        .update({
+    try {
+      if (editingProcess?.id) {
+        // --- UPDATE ---
+        const updated = await updateProcesso(editingProcess.id, {
           nome: formData.nome,
           inicio: formData.inicio,
           fim: formData.fim,
           descricao: formData.descricao,
-        })
-        .eq('id', editingProcess.id)
-        .select();
+          ai_metadata: formData.ai_metadata // Ensure we pass this if present
+        });
 
-      if (error) {
-        console.error('Erro ao atualizar:', error);
-        toast.error('Erro ao atualizar processo.');
-      } else if (data && data.length > 0) {
-        // Atualiza a lista localmente
-        setProcessos(processos.map(p => p.id === editingProcess.id ? data[0] : p));
-        setIsModalOpen(false);
+        setProcessos(processos.map(p => p.id === editingProcess.id ? updated : p));
         toast.success('Processo atualizado com sucesso!');
-      }
+      } else {
+        // --- CREATE ---
+        const payload = {
+          nome: formData.nome,
+          descricao: formData.descricao,
+          inicio: formData.inicio,
+          fim: formData.fim,
+          ai_metadata: editingProcess?.ai_metadata || null
+        };
 
-    } else {
-      // --- MODO CRIAÇÃO (INSERT) ---
-      // Ajuste de Validação: Garante que as datas não vão como string vazia se o usuário não preencher
-      const payload = {
-        nome: formData.nome,
-        descricao: formData.descricao,
-        fase_atual: 'Planejamento', // Valor padrão
-        progresso: 0
-      };
-
-      // Adiciona ao payload apenas se existir valor, evitando erro de formato inválido no banco
-      if (formData.inicio) payload.inicio = formData.inicio;
-      if (formData.fim) payload.fim = formData.fim;
-
-      const { data, error } = await supabase
-        .from('processos')
-        .insert([payload])
-        .select();
-
-      if (error) {
-        console.error('Erro ao criar:', error);
-        toast.error('Erro ao criar processo.');
-      } else if (data && data.length > 0) {
-        setProcessos([data[0], ...processos]);
-        setIsModalOpen(false);
+        const novo = await createProcesso(payload);
+        setProcessos([novo, ...processos]);
         toast.success('Processo criado com sucesso!');
       }
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Erro ao salvar:', error);
+      toast.error('Erro ao salvar processo.');
     }
   };
 
   const handleDelete = async (id) => {
     if (window.confirm('Tem certeza que deseja excluir este processo?')) {
-      const { error } = await supabase.from('processos').delete().eq('id', id);
-      if (error) {
-        console.error('Erro ao excluir:', error);
-        toast.error('Erro ao excluir.');
-      } else {
+      try {
+        await deleteProcesso(id);
         setProcessos(processos.filter(p => p.id !== id));
         toast.success('Processo excluído.');
+      } catch (error) {
+        console.error('Erro ao excluir:', error);
+        toast.error('Erro ao excluir.');
       }
     }
   };
 
-  // Função auxiliar para formatar data (opcional, para ficar bonito na tabela)
   const formatDate = (dateString) => {
     if (!dateString) return '-';
+    // Se a data já estiver no formato BR DD/MM/YYYY, retorna ela mesma
+    if (dateString.includes('/')) return dateString;
+    // Se estiver em YYYY-MM-DD
     const [year, month, day] = dateString.split('-');
     return `${day}/${month}/${year}`;
   };
@@ -228,6 +258,7 @@ export default function Processos() {
           </button>
         </div>
       </div>
+
       {/* Tabela */}
       {loading ? (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
@@ -257,7 +288,17 @@ export default function Processos() {
                         <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-100 transition-colors">
                           <FileText size={18} />
                         </div>
-                        <span className="font-semibold text-slate-700 text-sm">{proc.nome}</span>
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-slate-700 text-sm">{proc.nome}</span>
+                          {proc.ai_metadata && Object.keys(proc.ai_metadata).length > 0 && (
+                            <button
+                              onClick={() => handleViewAnalysis(proc)}
+                              className="text-xs text-emerald-600 flex items-center gap-1 hover:underline mt-0.5 cursor-pointer w-fit"
+                            >
+                              <Sparkles size={10} /> IA Disponível
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-5 text-sm text-slate-600 whitespace-nowrap">
@@ -274,6 +315,15 @@ export default function Processos() {
                     </td>
                     <td className="px-6 py-5 text-right">
                       <div className="flex justify-end space-x-2">
+                        {proc.ai_metadata && Object.keys(proc.ai_metadata).length > 0 && (
+                          <button
+                            onClick={() => handleViewAnalysis(proc)}
+                            className="p-2 text-slate-400 hover:text-emerald-600 rounded-lg transition-colors"
+                            title="Ver Dashboard IA"
+                          >
+                            <Sparkles size={18} />
+                          </button>
+                        )}
                         <button
                           onClick={() => navigate('/workflow', { state: { processId: proc.id, processName: proc.nome } })}
                           className="p-2 text-slate-400 hover:text-blue-600 rounded-lg transition-colors"
@@ -281,8 +331,6 @@ export default function Processos() {
                         >
                           <Layers size={18} />
                         </button>
-
-                        {/* Botão de Editar Ativado */}
                         <button
                           onClick={() => handleOpenEdit(proc)}
                           className="p-2 text-slate-400 hover:text-amber-600 rounded-lg transition-colors"
@@ -290,7 +338,6 @@ export default function Processos() {
                         >
                           <Edit size={18} />
                         </button>
-
                         <button
                           onClick={() => handleDelete(proc.id)}
                           className="p-2 text-slate-400 hover:text-red-600 rounded-lg transition-colors"
@@ -308,11 +355,20 @@ export default function Processos() {
         </div>
       )}
 
+      {/* MODALS */}
       <NewProcessModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveProcess}
         processoParaEditar={editingProcess}
+      />
+
+      <AnalysisModal
+        isOpen={isAnalysisModalOpen}
+        onClose={() => setIsAnalysisModalOpen(false)}
+        analysisData={analysisResult}
+        fullText={pdfText}
+        onCreateProcess={handleCreateFromAnalysis}
       />
     </div>
   );

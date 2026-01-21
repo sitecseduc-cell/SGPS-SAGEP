@@ -253,8 +253,8 @@ export default function Layout() {
           </SidebarGroup>
 
           <SidebarGroup title="Gestão">
-            <SidebarItem icon={Briefcase} label="Quadro Geral" to="/vagas" />
-            <SidebarItem icon={Star} label="Especiais" to="/vagas-especiais" />
+            <SidebarItem icon={Briefcase} label="Controle de Vagas" to="/vagas" />
+            <SidebarItem icon={Star} label="Vagas Especiais" to="/vagas-especiais" />
           </SidebarGroup>
 
           <SidebarGroup title="Ferramentas">

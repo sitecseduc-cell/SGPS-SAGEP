@@ -1,12 +1,10 @@
 import { supabase } from '../lib/supabaseClient';
 
 export const fetchProcessos = async ({ signal } = {}) => {
-    // Selecione apenas as colunas que aparecem na tabela/lista
     let query = supabase
         .from('processos')
-        .select('id, titulo, status, data_inicio, data_fim, vagas_disponiveis')
-        .order('created_at', { ascending: false })
-        .limit(50); // Hard limit preventivo
+        .select('*') // Select all to ensure we get ai_metadata and others
+        .order('created_at', { ascending: false });
 
     if (signal) {
         query = query.abortSignal(signal);
@@ -18,14 +16,19 @@ export const fetchProcessos = async ({ signal } = {}) => {
 };
 
 export const createProcesso = async (processoData) => {
+    // Ensure defaults
+    const payload = {
+        ...processoData,
+        fase_atual: processoData.fase_atual || 'Planejamento',
+        progresso: processoData.progresso || 0,
+        // ai_metadata is optional and passed in processoData if exists
+    };
+
     const { data, error } = await supabase
         .from('processos')
-        .insert([{
-            ...processoData,
-            fase_atual: 'Planejamento',
-            progresso: 0
-        }])
+        .insert([payload])
         .select();
+
     if (error) throw error;
     return data[0];
 };
@@ -36,6 +39,7 @@ export const updateProcesso = async (id, processoData) => {
         .update(processoData)
         .eq('id', id)
         .select();
+
     if (error) throw error;
     return data[0];
 };
