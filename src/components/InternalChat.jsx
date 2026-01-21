@@ -79,7 +79,7 @@ export default function InternalChat() {
                 .from('chat_messages')
                 .select(`
                     id, content, created_at, sender_id, receiver_id,
-                    profiles:sender_id (full_name, avatar_url)
+                    sender:profiles!sender_id (full_name, avatar_url)
                 `)
                 .order('created_at', { ascending: true })
                 .limit(50);
@@ -118,7 +118,7 @@ export default function InternalChat() {
 
                     if (isRelevant) {
                         const { data } = await supabase.from('profiles').select('full_name, avatar_url').eq('id', newMsg.sender_id).single();
-                        setMessages(prev => [...prev, { ...newMsg, profiles: data }]);
+                        setMessages(prev => [...prev, { ...newMsg, sender: data }]);
                     }
                 }
             )
@@ -177,7 +177,7 @@ export default function InternalChat() {
     if (!user) return null;
 
     return (
-        <div className="fixed bottom-24 right-6 z-[60] flex flex-col items-end pointer-events-none font-sans">
+        <div className="fixed bottom-6 right-28 z-[60] flex flex-col items-end pointer-events-none font-sans">
             {isOpen && (
                 <div className="mb-4 bg-white dark:bg-slate-800 w-80 md:w-96 h-[550px] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden pointer-events-auto animate-fadeIn flex flex-col transform transition-all">
 
@@ -216,8 +216,8 @@ export default function InternalChat() {
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
                                     className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center justify-center gap-2 transition-all ${activeTab === tab
-                                            ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm'
-                                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                        ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                                         }`}
                                 >
                                     {tab === 'global' ? <Globe size={14} /> : <Users size={14} />}
@@ -258,16 +258,16 @@ export default function InternalChat() {
                                                         {!isMe && !isSequence && (
                                                             <div className="flex items-center gap-2 mb-1 ml-1">
                                                                 <div className="w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center text-[8px] text-white font-bold uppercase ring-2 ring-white dark:ring-slate-800">
-                                                                    {(msg.profiles?.full_name || '?').substring(0, 2)}
+                                                                    {(msg.sender?.full_name || '?').substring(0, 2)}
                                                                 </div>
                                                                 <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 truncate max-w-[150px]">
-                                                                    {msg.profiles?.full_name}
+                                                                    {msg.sender?.full_name}
                                                                 </span>
                                                             </div>
                                                         )}
                                                         <div className={`px-4 py-2 max-w-[85%] text-sm rounded-2xl shadow-sm relative group transition-all hover:shadow-md ${isMe
-                                                                ? 'bg-blue-600 text-white rounded-br-sm'
-                                                                : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-600 rounded-bl-sm'
+                                                            ? 'bg-blue-600 text-white rounded-br-sm'
+                                                            : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-600 rounded-bl-sm'
                                                             }`}>
                                                             {msg.content}
                                                             <div className={`text-[9px] mt-1 text-right w-full flex justify-end items-center gap-1 ${isMe ? 'opacity-70 text-blue-100' : 'opacity-50'}`}>

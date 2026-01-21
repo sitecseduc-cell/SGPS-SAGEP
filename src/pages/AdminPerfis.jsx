@@ -3,7 +3,7 @@ import {
     Shield, Lock, Users, CheckCircle, AlertTriangle, Plus, Trash2, Edit,
     Save, Search, UserCog, MoreVertical, X, Settings, Database, Activity,
     ChevronLeft, ChevronRight, Filter, TrendingUp, Clock, UserPlus, Eye,
-    Award, BarChart3, PieChart, LineChart, Zap, Star
+    Award, BarChart3, PieChart, LineChart, Zap, Star, User
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { profileService } from '../services/profileService';
@@ -283,28 +283,7 @@ export default function AdminPerfis() {
             </div>
 
             {/* Role Distribution Chart */}
-            <div className="glass-panel p-6 rounded-2xl border border-white/30 dark:border-white/10">
-                <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-                    <BarChart3 size={20} className="text-indigo-600" /> Distribuição de Usuários por Perfil
-                </h3>
-                {roleCounts.length > 0 ? (
-                    <Pie
-                        data={{
-                            labels: roleCounts.map(rc => rc.name),
-                            datasets: [{
-                                data: roleCounts.map(rc => rc.count),
-                                backgroundColor: ['#6366F1', '#EC4899', '#10B981', '#F59E0B', '#8B5CF6'],
-                                borderColor: '#fff',
-                                borderWidth: 1,
-                            }],
-                        }}
-                        options={{ maintainAspectRatio: false }}
-                        height={250}
-                    />
-                ) : (
-                    <p className="text-slate-500 dark:text-slate-400">Nenhum dado de distribuição disponível.</p>
-                )}
-            </div>
+            {/* Chart Removed by User Request */}
 
             {/* Navigation Tabs */}
             <div className="glass-panel p-1.5 rounded-xl inline-flex gap-2 relative z-10">
@@ -631,58 +610,107 @@ const ModalUser = ({ isOpen, onClose, onSave, roles }) => {
 
     return (
         <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-md animate-fadeIn">
-            <div className="glass-card w-full max-w-md overflow-hidden flex flex-col">
-                <div className="px-6 py-5 border-b border-slate-200/50 dark:border-white/10 flex justify-between items-center bg-white/40 dark:bg-black/20">
-                    <h3 className="font-bold text-xl text-slate-800 dark:text-white flex items-center gap-2"><UserCog className="text-indigo-500" size={24} /> Novo Usuário</h3>
-                    <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition-colors"><X size={20} className="text-slate-500 dark:text-slate-400" /></button>
+            <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-700 transform transition-all scale-100">
+                {/* Header */}
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 flex justify-between items-center text-white">
+                    <div>
+                        <h3 className="font-bold text-xl flex items-center gap-2">
+                            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                                <UserPlus size={20} className="text-white" />
+                            </div>
+                            Novo Usuário
+                        </h3>
+                        <p className="text-blue-100 text-xs mt-1 ml-11 opacity-90">Cadastre um novo membro na equipe</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition-colors text-white/80 hover:text-white">
+                        <X size={20} />
+                    </button>
                 </div>
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    <div className="col-span-2">
-                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 block">Nome Completo</label>
-                        <input
-                            required
-                            type="text"
-                            className="input-glass w-full"
-                            value={formData.name}
-                            onChange={e => setFormData({ ...formData, name: e.target.value })}
-                        />
+
+                {/* Body */}
+                <form onSubmit={handleSubmit} className="p-6 space-y-5">
+                    <div className="space-y-4">
+                        <div className="group">
+                            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1">Nome Completo</label>
+                            <div className="relative">
+                                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
+                                <input
+                                    required
+                                    type="text"
+                                    placeholder="Ex: Ana Silva"
+                                    className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:border-blue-500 focus:ring-0 transition-all dark:text-white"
+                                    value={formData.name}
+                                    onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="group">
+                            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1">Email Corporativo</label>
+                            <div className="relative">
+                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors">@</div>
+                                <input
+                                    required
+                                    type="email"
+                                    placeholder="ana.silva@cps.pa.gov.br"
+                                    className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:border-blue-500 focus:ring-0 transition-all dark:text-white"
+                                    value={formData.email}
+                                    onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="group">
+                                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1">Senha Inicial</label>
+                                <div className="relative">
+                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
+                                    <input
+                                        required
+                                        type="password"
+                                        minLength={6}
+                                        placeholder="******"
+                                        className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:border-blue-500 focus:ring-0 transition-all dark:text-white"
+                                        value={formData.password}
+                                        onChange={e => setFormData({ ...formData, password: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="group">
+                                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1">Perfil de Acesso</label>
+                                <div className="relative">
+                                    <Shield className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
+                                    <select
+                                        className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:border-blue-500 focus:ring-0 transition-all dark:text-white appearance-none cursor-pointer"
+                                        value={formData.role}
+                                        onChange={e => setFormData({ ...formData, role: e.target.value })}
+                                    >
+                                        {roles.map(role => (
+                                            <option key={role.id} value={role.id}>{role.name}</option>
+                                        ))}
+                                    </select>
+                                    <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 rotate-90 scale-75" />
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div className="col-span-2">
-                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 block">Email</label>
-                        <input
-                            required
-                            type="email"
-                            className="input-glass w-full"
-                            value={formData.email}
-                            onChange={e => setFormData({ ...formData, email: e.target.value })}
-                        />
-                    </div>
-                    <div className="col-span-2">
-                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 block">Senha Inicial (Min. 6)</label>
-                        <input
-                            required
-                            type="password"
-                            minLength={6}
-                            className="input-glass w-full"
-                            value={formData.password}
-                            onChange={e => setFormData({ ...formData, password: e.target.value })}
-                        />
-                    </div>
-                    <div className="col-span-2">
-                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 block">Perfil de Acesso</label>
-                        <select
-                            className="input-glass w-full"
-                            value={formData.role}
-                            onChange={e => setFormData({ ...formData, role: e.target.value })}
+
+                    <div className="pt-6 flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800 mt-2">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="px-6 py-2.5 rounded-xl text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                         >
-                            {roles.map(role => (
-                                <option key={role.id} value={role.id}>{role.name}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="pt-6 flex justify-end gap-3">
-                        <button type="button" onClick={onClose} className="btn-secondary-glass px-6 py-2.5">Cancelar</button>
-                        <button type="submit" className="btn-primary-glass px-6 py-2.5 flex items-center gap-2"><Plus size={18} /> Criar Usuário</button>
+                            Cancelar
+                        </button>
+                        <button
+                            type="submit"
+                            className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/30 active:scale-95 transition-all flex items-center gap-2"
+                        >
+                            <CheckCircle size={18} />
+                            Criar Usuário
+                        </button>
                     </div>
                 </form>
             </div>

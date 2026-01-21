@@ -147,7 +147,7 @@ export const profileService = {
       const { data: profiles, error } = await supabase
         .from('profiles')
         .select('role');
-      
+
       if (error) throw error;
 
       const { data: roles } = await supabase
@@ -174,22 +174,31 @@ export const profileService = {
   },
 
   async getUserActivity(page = 1, limit = 10) {
-    // Tenta buscar de uma tabela real, fallback para mock se não existir
     try {
       const { data, error } = await supabase
-        .from('activity_logs')
+        .from('audit_logs')
         .select('*')
         .order('created_at', { ascending: false })
         .range((page - 1) * limit, (page - 1) * limit + limit - 1);
 
-      if (error || !data) throw error;
-      return data;
+      if (error) throw error;
+      if (!data) return [];
+
+      // Mapper para o formato da UI
+      return data.map(log => ({
+        type: log.operation === 'INSERT' ? 'user' : (log.operation === 'DELETE' ? 'security' : 'role'),
+        title: `Ação: ${log.operation}`,
+        description: `Alteração em ${log.table_name}`,
+        timestamp: log.created_at
+      }));
+
     } catch (error) {
+      console.error("Erro buscas logs:", error);
       // Mock data for UI demonstration if backend not ready
       return [
-          { type: 'role', title: 'Permissão Atualizada', description: 'Alteração nas regras de Admin', timestamp: new Date().toISOString() },
-          { type: 'user', title: 'Novo Usuário', description: 'Novo membro cadastrado no sistema', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString() },
-          { type: 'security', title: 'Política de Senha', description: 'Requisitos de segurança atualizados', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() },
+        { type: 'role', title: 'Permissão Atualizada', description: 'Alteração nas regras de Admin', timestamp: new Date().toISOString() },
+        { type: 'user', title: 'Novo Usuário', description: 'Novo membro cadastrado no sistema', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString() },
+        { type: 'security', title: 'Política de Senha', description: 'Requisitos de segurança atualizados', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() },
       ];
     }
   },
@@ -252,29 +261,23 @@ export const profileService = {
       options: {
         data: {
           full_name: userData.name,
+          role: userData.role // Trigger will catch this!
         },
       },
     });
 
     if (authError) throw authError;
 
-    // Force role update if signup successful
-    if (authData.user) {
-      // Small safety delay for trigger
-      await new Promise(r => setTimeout(r, 1000));
-
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          role: userData.role,
-          full_name: userData.name
-        })
-        .eq('id', authData.user.id);
-
-      if (profileError) {
-        console.warn('User created but profile update failed:', profileError);
-      }
-    }
+    // Optional: Log action (Audit)
+    try {
+      await supabase.rpc('log_audit_event', {
+        p_operation: 'INSERT',
+        p_table_name: 'profiles',
+        p_record_id: authData.user?.id || null,
+        p_old_data: null,
+        p_new_data: { email: userData.email, role: userData.role }
+      });
+    } catch (e) { console.warn("Audit log failed", e); }
 
     return authData;
   }

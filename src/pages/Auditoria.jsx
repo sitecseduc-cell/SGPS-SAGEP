@@ -5,7 +5,7 @@ import { ptBR } from 'date-fns/locale';
 import { ShieldAlert, Search, Database, Clock, ArrowRight, User, FileText, Download, Eye, X, ChevronRight, AlertCircle } from 'lucide-react';
 import { TableSkeleton } from '../components/ui/Loading';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { toast } from 'sonner';
 
 // --- COMPONENTE MODAL DE DETALHES ---
@@ -101,7 +101,7 @@ export default function Auditoria() {
             tableRows.push(logData);
         });
 
-        doc.autoTable({
+        autoTable(doc, {
             head: [tableColumn],
             body: tableRows,
             startY: 60,

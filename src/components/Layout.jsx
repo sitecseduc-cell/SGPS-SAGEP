@@ -143,7 +143,7 @@ export default function Layout() {
         .from('chat_messages')
         .select(`
             id, content, created_at, sender_id, receiver_id,
-            profiles:sender_id (full_name)
+            sender:profiles!sender_id (full_name)
         `)
         .or(`receiver_id.eq.${user.id},receiver_id.is.null`)
         .order('created_at', { ascending: false })
@@ -164,7 +164,7 @@ export default function Layout() {
       const formattedChat = chatData.map(msg => ({
         id: `chat-${msg.id}`,
         type: 'chat',
-        text: msg.profiles?.full_name ? `Mensagem de ${msg.profiles.full_name}` : 'Nova mensagem',
+        text: msg.sender?.full_name ? `Mensagem de ${msg.sender.full_name}` : 'Nova mensagem',
         subtext: msg.content,
         time: new Date(msg.created_at),
         data: msg,

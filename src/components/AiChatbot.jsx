@@ -1,19 +1,12 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquare, X, Send, Bot, User, Loader } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-// Initialize Gemini
-// Remove quotes if the user accidentally added them in .env
-const rawKey = import.meta.env.VITE_GOOGLE_API_KEY || "";
-const apiKey = rawKey.replace(/['"]/g, '').trim();
-const genAI = new GoogleGenerativeAI(apiKey);
+import { GeminiService } from '../services/GeminiService';
 
 export default function AiChatbot() {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([
-        { id: 1, sender: 'bot', text: 'Olá! Sou o Assistente Inteligente do CPS, potencializado pelo Google Gemini. Posso ajudar com inscrições, editais, vagas e dúvidas gerais.' }
+        { id: 1, sender: 'bot', text: 'Olá! Sou o Assistente Inteligente do CPS, agora com acesso total aos dados do sistema. Pergunte sobre processos, vagas, candidatos ou auditoria!' }
     ]);
     const [inputText, setInputText] = useState('');
     const [isTyping, setIsTyping] = useState(false);
@@ -26,24 +19,6 @@ export default function AiChatbot() {
     useEffect(() => {
         scrollToBottom();
     }, [messages, isOpen, isTyping]);
-
-    // DEBUG: List available models
-    useEffect(() => {
-        /*
-        async function checkModels() {
-            try {
-                // Note: The SDK does not strictly expose listModels on the client instance easily 
-                // without admin-like privileges or using the REST API directly.
-                // But we can try a simple fetch to the API endpoint to see what's up 
-                // if we were in a node environment.
-                // Instead, let's just stick to the most stable model name known: 'gemini-pro'
-                // or 'gemini-1.5-flash'.
-                // If 1.5-flash fails, it is VERY strange.
-            } catch (e) { console.error(e); }
-        }
-        checkModels();
-        */
-    }, []);
 
     const handleSend = async (e) => {
         e.preventDefault();
@@ -67,59 +42,54 @@ export default function AiChatbot() {
 
     const generateSmartResponse = async (text) => {
         try {
-            // 1. Coletar Contexto do Sistema (RAG Lite)
+            // 1. Coletar Contexto do Sistema (RAG Lite Expandido)
             const contextData = [];
 
-            // Buscar Vagas
-            const { data: vagas } = await supabase.from('vagas').select('municipio, escola, cargo, qtd').limit(10);
-            if (vagas && vagas.length > 0) {
-                const vagasStr = vagas.map(v => `- ${v.cargo} em ${v.municipio} (${v.escola}): ${v.qtd} vagas`).join('\n');
-                contextData.push(`VAGAS DISPONÍVEIS:\n${vagasStr}`);
-            }
-
-            // Buscar Critérios
-            const { data: criterios } = await supabase.from('criterios_pontuacao').select('titulo, pontos').limit(10);
-            if (criterios && criterios.length > 0) {
-                const critStr = criterios.map(c => `- ${c.titulo}: ${c.pontos} pontos`).join('\n');
-                contextData.push(`CRITÉRIOS DE PONTUAÇÃO:\n${critStr}`);
-            }
-
-            // Buscar FAQs (Busca Semântica ou Textual simples)
-            const { data: faqs } = await supabase.from('faqs').select('pergunta, resposta').textSearch('pergunta', text, { type: 'websearch', config: 'portuguese' }).limit(3);
-            if (faqs && faqs.length > 0) {
-                const faqStr = faqs.map(f => `P: ${f.pergunta}\nR: ${f.resposta}`).join('\n');
-                contextData.push(`FAQs RELACIONADAS:\n${faqStr}`);
-            }
-
-            // 2. Construir Prompt
-            const contextString = contextData.join('\n\n');
-            // Tentativa com o nome mais padrão possível
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-            const prompt = `
-Você é o Assistente Virtual do CPS (Sistema de Gestão de Processos Seletivos).
-Seu objetivo é ajudar candidatos e usuários com dúvidas sobre o sistema, vagas e editais.
-
-Use APENAS as informações de contexto abaixo para responder à pergunta do usuário.
-Se a informação não estiver no contexto, diga gentilmente que não possui essa informação específica no momento, mas que pode tentar ajudar com outros assuntos do sistema.
-Seja conciso, educado e use formatação Markdown (negrito, listas) para facilitar a leitura.
-
-CONTEXTO DO SISTEMA:
-${contextString}
-
-PERGUNTA DO USUÁRIO:
-${text}
+            // A. Mapa do Sistema (Conhecimento Estático)
+            const SYSTEM_MAP = `
+            SOBRE O SISTEMA CPS (Gestão de Processos Públicos):
+            - Módulo Processos: Criação e gestão de editais (PSS), com análise de PDF via IA.
+            - Módulo Vagas: Controle de lotação, vacância e status de servidores.
+            - Módulo Candidatos: Acompanhamento de inscritos (Kanban: Classificado -> Em Análise -> Pendência -> Homologado).
+            - Módulo Planejamento: Gestão de orçamento (LOA) e limites prudenciais (LRF).
+            - Módulo Auditoria: Rastreabilidade total de alterações (Logs) e Relatórios IOEPA.
             `;
+            contextData.push(SYSTEM_MAP);
 
-            // 3. Gerar Resposta
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
-            return response.text();
+            // B. Dados em Tempo Real (Dinâmico)
+
+            // Vagas (Amostra e Resumo)
+            const { data: vagas, count: totalVagas } = await supabase.from('controle_vagas').select('municipio, cargo_funcao, vacancia, status', { count: 'exact' }).limit(10);
+            if (vagas) {
+                const vagasStr = vagas.map(v => `- ${v.cargo_funcao} (${v.municipio}): ${v.status}`).join('\n');
+                contextData.push(`VAGAS (Total: ${totalVagas}):\n${vagasStr}\n...`);
+            }
+
+            // Processos
+            const { data: processos } = await supabase.from('processos').select('nome, status, inicio, fim').order('created_at', { ascending: false }).limit(5);
+            if (processos) {
+                contextData.push(`PROCESSOS RECENTES:\n${processos.map(p => `- ${p.nome} [${p.status}] (${p.inicio} a ${p.fim})`).join('\n')}`);
+            }
+
+            // Estatísticas de Candidatos (Agregado simples)
+            const { count: totalCandidatos } = await supabase.from('candidatos').select('*', { count: 'exact', head: true });
+            const { count: convocados } = await supabase.from('candidatos').select('*', { count: 'exact', head: true }).eq('status', 'Convocado');
+            contextData.push(`ESTATÍSTICAS GERAIS:\n- Total de Inscritos: ${totalCandidatos}\n- Total de Convocados: ${convocados}`);
+
+            // C. Auditoria Recente (Segurança)
+            const { data: audit } = await supabase.from('audit_logs').select('operation, table_name, created_at').order('created_at', { ascending: false }).limit(3);
+            if (audit) {
+                contextData.push(`ÚLTIMAS AÇÕES NO SISTEMA:\n${audit.map(a => `- ${a.operation} em ${a.table_name} às ${new Date(a.created_at).toLocaleTimeString()}`).join('\n')}`);
+            }
+
+            // 2. Usar o Serviço Centralizado com Prompt Rico
+            const contextString = contextData.join('\n\n====================\n\n');
+            const response = await GeminiService.chat(text, contextString);
+            return response;
 
         } catch (error) {
             console.error("Erro na IA:", error);
-            // Fallback simples se a API falhar
-            return "Estou tendo problemas para processar sua solicitação com a IA. Por favor, verifique se a chave API está configurada corretamente.";
+            return "Estou tendo problemas para acessar os dados do sistema agora. Tente novamente.";
         }
     };
 
@@ -159,7 +129,7 @@ ${text}
                                         : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-600 rounded-bl-none'
                                         }`}
                                 >
-                                    <p dangerouslySetInnerHTML={{ __html: msg.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }}></p>
+                                    <p dangerouslySetInnerHTML={{ __html: msg.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>') }}></p>
                                 </div>
                             </div>
                         ))}
@@ -180,7 +150,7 @@ ${text}
                         <div className="relative">
                             <input
                                 type="text"
-                                placeholder="Ex: CPF 123.456.789-00 ou 'Editais abertos'"
+                                placeholder="Pergunte sobre vagas, editais, auditoria..."
                                 className="w-full pl-4 pr-10 py-2 rounded-full border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
                                 value={inputText}
                                 onChange={(e) => setInputText(e.target.value)}
@@ -205,7 +175,7 @@ ${text}
                     : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:scale-110 animate-bounce-slow'
                     } text-white`}
             >
-                {isOpen ? <X size={24} /> : <MessageSquare size={24} />}
+                {isOpen ? <X size={24} /> : <Bot size={24} />}
             </button>
         </div>
     );

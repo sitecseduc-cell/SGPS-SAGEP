@@ -114,8 +114,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return fetchProfile(userId, retryCount + 1);
       }
 
-      console.warn("[Auth] ⚠️ Failed to fetch profile after retries. App will load without profile.");
-      setProfile(null);
+      setProfile((prev) => {
+        if (prev && prev.id === userId) {
+          console.warn("[Auth] ⚠️ Failed to fetch profile after retries. Keeping previous profile data.");
+          return prev;
+        }
+        console.warn("[Auth] ⚠️ Failed to fetch profile. App will load without profile.");
+        return null;
+      });
     } finally {
       // Release lock only if this was the root call
       if (retryCount === 0) {
@@ -139,7 +145,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // console.log(`[Auth] 🔄 Auth Event: ${event}`);
       setUser(session?.user ?? null);
 
-      if (session?.user) {
+      if (session?.user && event !== 'TOKEN_REFRESHED') {
         // Se houver usuário, buscamos o perfil
         // O safetyTimeout aqui deve ser maior que o timeout da busca (agora 6s + retry)
         safetyTimeout = setTimeout(() => {
@@ -152,10 +158,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (safetyTimeout) clearTimeout(safetyTimeout);
         setLoading(false);
 
-        await fetchProfile(session.user.id);
 
-        if (safetyTimeout) clearTimeout(safetyTimeout);
-        setLoading(false);
       } else {
         // Se não tem sessão (ex: SIGNED_OUT), limpa perfil e loading
         setProfile(null);

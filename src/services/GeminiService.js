@@ -1,12 +1,16 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const rawKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_GOOGLE_API_KEY || "";
+const API_KEY = rawKey.replace(/['"]/g, '').trim();
 
 // Inicializa o cliente Gemini apenas se a chave existir
 let genAI = null;
 if (API_KEY) {
     genAI = new GoogleGenerativeAI(API_KEY);
 }
+
+// MODELO ESCOLHIDO (Baseado na lista disponível do usuário)
+const MODEL_NAME = "gemini-flash-latest";
 
 export const GeminiService = {
     /**
@@ -23,24 +27,30 @@ export const GeminiService = {
                 inicio: new Date().toISOString().split('T')[0],
                 fim: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
                 descricao: "Descrição extraída automaticamente do edital (Mock).",
-                fases_previstas: ["Inscrição", "Homologação", "Recursos", "Resultado Final"]
+                fases_previstas: ["Inscrição", "Homologação", "Recursos", "Resultado Final"],
+                cargos: ["Cargo A", "Cargo B"],
+                etapas: ["Etapa 1", "Etapa 2"]
             };
         }
 
         try {
-            const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+            const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
             const prompt = `
-        Analise o seguinte texto de um Edital de Processo Seletivo (PSS) e extraia as seguintes informações em formato JSON estrito:
-        - "nome": Um nome curto e sugestivo para o processo.
-        - "descricao": Um resumo breve do objetivo do edital.
-        - "inicio": Data de início das inscrições (formato YYYY-MM-DD). Se não achar, use a data de hoje.
-        - "fim": Data de fim das inscrições (formato YYYY-MM-DD). Se não achar, use 30 dias após o início.
+        Analise o texto deste Edital de Processo Seletivo (PSS) e extraia dados estruturados.
         
-        Texto do Edital:
-        ${editalText.substring(0, 30000)} // Limita tamanho para caber no contexto
+        Retorne APENAS um JSON com os campos:
+        - "nome": Nome sugestivo do PSS (Ex: PSS Educação 2025).
+        - "descricao": Resumo de 2 linhas sobre o objetivo.
+        - "inicio": Data de início das inscrições (YYYY-MM-DD). Use hoje se não achar.
+        - "fim": Data fim das inscrições (YYYY-MM-DD). Use inicio + 30 dias se não achar.
+        - "cargos": Array de strings com os nomes dos principais cargos ofertados (Ex: ["Professor", "Merendeira"]).
+        - "etapas": Array de strings com as fases do certame (Ex: ["Inscrições", "Prova de Títulos", "Resultado"]).
+
+        Texto do Edital (início):
+        ${editalText.substring(0, 25000)}
         
-        Retorne APENAS o JSON válido, sem markdown.
+        IMPORTANTE: Responda SOMENTE o JSON válido.
       `;
 
             const result = await model.generateContent(prompt);
@@ -54,7 +64,55 @@ export const GeminiService = {
 
         } catch (error) {
             console.error("Erro ao analisar edital com Gemini:", error);
-            throw new Error("Falha na análise inteligente do Edital.");
+            // Mock inteligente em caso de falha real da API (ou falta de cota)
+            return {
+                nome: "Processo Seletivo (Detectado)",
+                descricao: "Falha na análise detalhada. Preencha manualmente.",
+                inicio: new Date().toISOString().split('T')[0],
+                fim: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                cargos: ["Cargo Genérico 1", "Cargo Genérico 2"],
+                etapas: ["Inscrição", "Análise", "Resultado"]
+            };
+        }
+    },
+
+    /**
+     * Chat interativo com contexto do sistema.
+     * @param {string} message - Mensagem do usuário.
+     * @param {string} systemContext - Contexto injetado (Vagas, FAQs, etc).
+     * @returns {Promise<string>} - Resposta do bot.
+     */
+    async chat(message, systemContext = '') {
+        if (!genAI) {
+            return "⚠️ A chave de API do Gemini não está configurada ou foi lida incorretamente. Verifique o arquivo .env";
+        }
+
+        try {
+            const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+
+            const prompt = `
+            Você é o Assistente Virtual do CPS (Sistema de Gestão de Processos Seletivos do Pará).
+            Sua missão é ajudar candidatos e servidores.
+            
+            CONTEXTO DO SISTEMA (Dados em Tempo Real):
+            ${systemContext}
+            
+            INSTRUÇÕES:
+            1. Responda apenas com base no contexto fornecido ou conhecimentos gerais sobre processos seletivos públicos.
+            2. Seja cordial, direto e profissional.
+            3. Use Markdown para formatar a resposta (negrito, listas).
+            
+            USUÁRIO: ${message}
+            RESPOSTA:
+            `;
+
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            return response.text();
+
+        } catch (error) {
+            console.error("Erro no Chat Gemini:", error);
+            return `Desculpe, tive um problema técnico ao processar sua mensagem. (${error.message || 'Erro desconhecido'})`;
         }
     }
 };

@@ -9,8 +9,8 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { GeminiService } from '../services/GeminiService';
 import ImmersiveLoader from '../components/ImmersiveLoader';
 
-// Configurar worker do PDF.js (necessário para vite)
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Configurar worker do PDF.js (usando arquivo na pasta public)
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 export default function Processos() {
   const fileInputRef = useRef(null);
@@ -31,19 +31,60 @@ export default function Processos() {
     }
   };
 
+  // Função para extrair texto do PDF
+  const extractPdfText = async (file) => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
+
+      // Lê no máximo 5 primeiras páginas para não estourar contexto
+      const maxPages = Math.min(pdf.numPages, 5);
+
+      for (let i = 1; i <= maxPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => item.str).join(' ');
+        fullText += pageText + '\n';
+      }
+      return fullText;
+    } catch (error) {
+      console.error("Erro ao ler PDF:", error);
+      throw new Error("Não foi possível ler o arquivo PDF.");
+    }
+  };
+
   const handleFileUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     setAnalyzing(true);
     try {
-      toast.info("Iniciando análise do Edital com IA...");
-      // Placeholder for Gemini integration
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      toast.success("Análise concluída! (Simulação)");
+      toast.info("Lendo arquivo PDF...");
+      const text = await extractPdfText(file);
+
+      toast.info("Analisando com IA (Gemini)...");
+      const dados = await GeminiService.analyzeEdital(text);
+
+      // Formata os dados extras na descrição
+      const cargosStr = dados.cargos?.length ? `\n\n📌 **Cargos Identificados:**\n- ${dados.cargos.join('\n- ')}` : '';
+      const etapasStr = dados.etapas?.length ? `\n\n📅 **Fases Previstas:**\n- ${dados.etapas.join('\n- ')}` : '';
+      const descriptionFull = (dados.descricao || '') + cargosStr + etapasStr;
+
+      // Preenche o formulário com os dados da IA
+      setEditingProcess({
+        isAiDraft: true, // Flag para indicar que é rascunho
+        nome: dados.nome,
+        descricao: descriptionFull,
+        inicio: dados.inicio,
+        fim: dados.fim
+      });
+      setIsModalOpen(true);
+
+      toast.success("Análise concluída! Verifique os dados.");
     } catch (error) {
       console.error(error);
-      toast.error("Erro ao analisar arquivo.");
+      toast.error("Erro ao analisar arquivo: " + error.message);
     } finally {
       setAnalyzing(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -81,7 +122,8 @@ export default function Processos() {
 
   // Função Centralizada de Salvar (Cria ou Atualiza)
   const handleSaveProcess = async (formData) => {
-    if (editingProcess) {
+    // Se tem ID, é update real. Se for rascunho de IA (sem ID), é criação.
+    if (editingProcess?.id) {
       // --- MODO EDIÇÃO (UPDATE) ---
       const { data, error } = await supabase
         .from('processos')
